@@ -1,0 +1,344 @@
+@import "tailwindcss";
+@import "@heroui/react/styles";
+
+/* dark: 접두어가 OS 설정이 아닌 <html class="dark"> (앱 내 테마 토글)를 따르도록 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+body {
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@keyframes strike {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.animate-strike {
+  animation: strike 0.4s ease-out forwards;
+}
+
+/* 탭 인디케이터: 스프링 느낌 (살짝 지나쳐다 안착) */
+[data-slot="tabs-indicator"] {
+  transition-property: translate, width, height;
+  transition-duration: 0.6s;
+  transition-timing-function: linear(0.0000, 0.0673, 0.2212, 0.4060, 0.5859, 0.7407, 0.8620, 0.9490, 1.0055, 1.0374, 1.0512, 1.0529, 1.0473, 1.0382, 1.0283, 1.0191, 1.0114, 1.0056, 1.0015, 0.9990, 0.9977, 0.9972, 0.9973, 0.9976, 1);
+}
+
+/* 체크 완료 시 좌우로 살짝 흔들림 (줄 그어지는 것과 함께) */
+@keyframes wiggle {
+  0%   { transform: translateX(0); }
+  18%  { transform: translateX(-3px); }
+  40%  { transform: translateX(2.5px); }
+  62%  { transform: translateX(-1.5px); }
+  82%  { transform: translateX(0.8px); }
+  100% { transform: translateX(0); }
+}
+.animate-wiggle {
+  animation: wiggle 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* 낙서 선: 왼쪽부터 그려지는 연출 (pathLength=1 기준) */
+@keyframes scribble {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+.animate-scribble {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: scribble 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* ─── 낙서 스킨 (html.sketch) — 종이 위 펜글씨, 박스는 거의 없이 ───────── */
+html.sketch {
+  --paper: #ffffff;
+  --ink: #1d1d1b;
+  --pencil: #8b897f;
+  --faint: rgba(29, 29, 27, 0.14);
+  --background: var(--paper);
+  --background-secondary: var(--paper);
+  --surface: var(--paper);
+  --foreground: var(--ink);
+  --muted: var(--pencil);
+  --border: var(--faint);
+}
+html.sketch.dark {
+  --paper: #1f1e1b;
+  --ink: #ebe7db;
+  --pencil: #88857b;
+  --faint: rgba(235, 231, 219, 0.16);
+}
+
+/* 펜글씨: 영문·숫자는 Patrick Hand, 한글은 Nanum Pen Script로 글자별 폴백 */
+html.sketch body,
+html.sketch .font-mono {
+  font-family: "Patrick Hand", "Poor Story", "Pretendard Variable", sans-serif;
+  letter-spacing: 0.005em;
+}
+/* 펜 폰트는 같은 px에서 작게 보이므로 글자 키 기준 보정 */
+html.sketch .sk-outer { font-size-adjust: 0.47; }
+html.sketch .font-bold, html.sketch .font-semibold, html.sketch b { font-weight: 400; }
+/* 강조가 꾸 필요한 숫자는 펜을 한 번 더 그은 듯 굵게 (폰트에 볼드가 없어 합성 볼드) */
+html.sketch .sk-bold { font-weight: 700; -webkit-text-stroke: 0.35px currentColor; }
+
+/* 종이 한 장: 바깥/안 패널 구분 없음 */
+/* 그림자는 넣지 않음 — 일렉트론 투명 창에서는 창 경계에 잘려 회색 덩어리로 보임. (웹에서는 기존 shadow-2xl 클래스가 담당) */
+html.sketch .sk-outer {
+  background: var(--paper);
+}
+/* 수첩 페이지: 살짝 샐뻗한 잉크 테두리 + 왼쪽 스프링 코일 */
+html.sketch .sk-panel {
+  background: transparent;
+  position: relative;
+  overflow: visible !important; /* 뜳김선(::after)이 테두리 밖으로 3px 나가므로 */
+  min-height: 0; /* overflow visible이되면 flex 자식이 내용만큼 늘어나는 것을 방지 → 리스트 안에서 스크롤 */
+  margin: 6px 14px 16px 14px !important;
+  border-radius: 0 3px 5px 0 / 0 5px 3px 0;
+}
+html.sketch .sk-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--ink);
+  border-left-color: transparent; /* 왼쪽은 뜳김선(::after)이 대신 */
+  border-radius: inherit;
+  pointer-events: none;
+  filter: url(#sketchy);
+  z-index: 0;
+}
+html.sketch .sk-panel > * { position: relative; z-index: 1; }
+/* 왼쪽 테두리: 스프링 자리에서 뚯어낸 듯 안쪽으로 반원 파임이 반복되는 뜳김선 */
+html.sketch .sk-panel::after {
+  content: "";
+  position: absolute;
+  left: -3.25px;
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  background: var(--ink);
+  pointer-events: none;
+  z-index: 2;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 24'><path d='M 4 0 V 5 C 4 9.5, 14.5 9, 14.5 12 C 14.5 15, 4 14.5, 4 19 V 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>") left top / 16px 24px round;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 24'><path d='M 4 0 V 5 C 4 9.5, 14.5 9, 14.5 12 C 14.5 15, 4 14.5, 4 19 V 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>") left top / 16px 24px round;
+  filter: url(#sketchy);
+}
+
+/* 날짜 헤더: 잉크색 펜글씨 + 아래 작은 구불선 */
+html.sketch .sk-head {
+  font-size: 17px;
+  color: var(--ink) !important;
+  letter-spacing: 0.02em;
+}
+
+/* 박스류: 테두리 제거. 설정 카드·드롭다운만 연한 연필선 */
+html.sketch .sk-box {
+  border-color: var(--faint) !important;
+  border-radius: 10px 6px 12px 5px / 6px 12px 5px 10px;
+  box-shadow: none !important;
+}
+html.sketch .sk-box.shadow-lg { background: var(--paper); border-color: var(--pencil) !important; }
+html.sketch .divide-y > :not(:first-child) { border-top-color: var(--faint) !important; }
+
+/* 세그먼트 탭: 박스 없이 글자만. 선택은 잉크 + 손그림 밑줄 */
+html.sketch [data-slot="tabs-list-container"],
+html.sketch [data-slot="tabs-list"] {
+  background: transparent !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+/* 가로 스크롤용 스크롤러가 동그라미를 자르므로 관련 요소 전부 visible */
+html.sketch .tabs__list-container__scroller,
+html.sketch [data-slot="tabs-list-container"] > *,
+html.sketch [data-slot="tab"],
+html.sketch [data-slot="tabs-indicator"] { overflow: visible !important; }
+html.sketch [data-slot="tabs-list-container"] { margin-top: 8px; margin-bottom: 2px; }
+/* 탭 자체를 높게 해서 동그라미가 박스 안에 들어가게 */
+html.sketch [data-slot="tab"] { height: 40px !important; }
+html.sketch [data-slot="tabs-indicator"] {
+  /* 낙서 스킨: 스프링 이동 대신 즉시 점프 → 동그라미가 그리는 모션만 보이게 */
+  transition: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0;
+  height: 100% !important;
+  top: 0 !important;
+}
+html.sketch [data-slot="tabs-indicator"]::after {
+  /* 펜으로 한 바퀴 동그라미 친 느낌: 시작과 끝이 살짝 어그나는 손그림 타원 */
+  content: "";
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 1px;
+  bottom: 1px;
+  background: var(--ink);
+  transform: rotate(-1.5deg);
+  filter: url(#sketchy);
+  /* 그리기 연출: 시작점(오른쪽 위)에서 반시계 방향으로 한 바퀴 */
+  --sweep: 360deg;
+  -webkit-mask-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'><path d='M62 5 C 40 2, 8 6, 5 20 C 3 31, 24 38, 52 37 C 80 36, 97 30, 96 19 C 95 8, 75 3, 55 5 C 48 5.6, 44 6.2, 40 7' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' vector-effect='non-scaling-stroke'/></svg>"),
+    conic-gradient(from 25deg at 50% 50%, transparent 0 calc(360deg - var(--sweep)), black 0);
+  mask-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'><path d='M62 5 C 40 2, 8 6, 5 20 C 3 31, 24 38, 52 37 C 80 36, 97 30, 96 19 C 95 8, 75 3, 55 5 C 48 5.6, 44 6.2, 40 7' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' vector-effect='non-scaling-stroke'/></svg>"),
+    conic-gradient(from 25deg at 50% 50%, transparent 0 calc(360deg - var(--sweep)), black 0);
+  -webkit-mask-size: 100% 100%, 100% 100%;
+  mask-size: 100% 100%, 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  animation: pen-circle 0.5s cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+@property --sweep {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 360deg;
+}
+@keyframes pen-circle {
+  from { --sweep: 0deg; }
+  to   { --sweep: 360deg; }
+}
+html.sketch [data-slot="tab"] { color: var(--pencil) !important; font-size: 14px; padding-top: 8px !important; padding-bottom: 8px !important; }
+html.sketch [data-slot="tab"][data-selected] { color: var(--ink) !important; }
+
+/* 체크박스: 손으로 그린 째그러진 뱈 원. 행마다 모양·기울기가 4가지로 번갈아 다르게 */
+html.sketch .sk-check {
+  width: 15px !important;
+  height: 14px !important;
+  border-width: 1.8px !important;
+  border-color: var(--ink) !important;
+  border-radius: 48% 52% 55% 45% / 52% 44% 56% 48%;
+  transform: rotate(0deg);
+  filter: url(#sketchy-strong);
+}
+html.sketch .group:nth-child(4n+2) .sk-check {
+  border-radius: 55% 45% 47% 53% / 47% 55% 45% 53%;
+  transform: rotate(14deg);
+  width: 14px !important; height: 15px !important;
+}
+html.sketch .group:nth-child(4n+3) .sk-check {
+  border-radius: 46% 54% 50% 50% / 56% 46% 54% 44%;
+  transform: rotate(-10deg);
+}
+html.sketch .group:nth-child(4n+4) .sk-check {
+  border-radius: 52% 48% 44% 56% / 45% 55% 47% 53%;
+  transform: rotate(24deg);
+  width: 15px !important; height: 13px !important;
+}
+html.sketch .sk-check[aria-checked="true"] { background: var(--ink) !important; }
+html.sketch .sk-check svg { width: 8px; height: 8px; }
+
+/* 그래프: 카드 없이 연필선 하나만. 거리드는 거의 지움 */
+html.sketch .sk-box:has(.sk-line) {
+  position: relative;
+  border-color: transparent !important;
+  padding: 10px 6px 4px;
+}
+html.sketch .sk-box:has(.sk-line)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1.3px solid var(--pencil);
+  opacity: 0.55;
+  border-radius: 8px 5px 9px 4px / 5px 9px 4px 8px;
+  pointer-events: none;
+  filter: url(#sketchy);
+}
+html.sketch .sk-line { filter: url(#sketchy-wobble); stroke-width: 1.9; }
+/* 영역 채움 → 연한 손그림 뿠금, 가장자리도 선과 같이 흔들림 */
+html.sketch .sk-area { fill: url(#doneHatch) !important; filter: url(#sketchy-wobble); }
+html.sketch .sk-box svg line { stroke-opacity: 0.03 !important; }
+html.sketch .sk-box svg line[y1="0"], html.sketch .sk-box svg g > line:first-child { stroke-opacity: 0.12 !important; }
+html.sketch .sk-box svg text { font-family: "Patrick Hand", "Poor Story", sans-serif; font-size: 12px; }
+
+/* 직선류는 살짝 샐뻗 */
+html.sketch .animate-strike { filter: url(#sketchy); }
+
+/* 설정 카드·그룹 제목 등 muted 글자는 연필색 유지, 버튼류 hover 배경은 연하게 */
+html.sketch .hover\:bg-background-secondary:hover { background: rgba(29, 29, 27, 0.05) !important; }
+
+/* 입력창 밑줄: 직선 대신 손으로 그은 울퉱불퉱한 펜선 (border 대신 background 이미지)
+   대기 = 연필색, 포컬스/편집 = 잉크색 */
+html.sketch .sk-underline {
+  border-bottom-color: transparent !important;
+  background-repeat: no-repeat;
+  background-position: bottom;
+  background-size: 100% 6px;
+  background-image: none; /* 포컬스 전엔 선 없음 */
+}
+html.sketch .sk-underline:focus,
+html.sketch .sk-underline.border-foreground {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' preserveAspectRatio='none'><path d='M1 3.6 C 20 2.2, 40 4.4, 60 3.2 S 100 1.8, 120 3.4 S 160 4.6, 180 2.8 S 195 2.4, 199 3.4' fill='none' stroke='%231d1d1b' stroke-width='1.4' stroke-linecap='round'/></svg>");
+}
+html.sketch.dark .sk-underline:focus,
+html.sketch.dark .sk-underline.border-foreground { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' preserveAspectRatio='none'><path d='M1 3.6 C 20 2.2, 40 4.4, 60 3.2 S 100 1.8, 120 3.4 S 160 4.6, 180 2.8 S 195 2.4, 199 3.4' fill='none' stroke='%23ebe7db' stroke-width='1.4' stroke-linecap='round'/></svg>"); }
+
+/* 선택된 항목: 종이색과 구별되게 형광펜으로 쓱 그은 듯한 밴드 + 왼쪽에 잉크 점 */
+html.sketch .sk-selected {
+  background: rgba(29, 29, 27, 0.09) !important;
+  border-radius: 6px 9px 5px 10px / 9px 5px 10px 6px;
+  transform: rotate(-0.25deg);
+  box-shadow: 3px 0 0 -1px rgba(29, 29, 27, 0.09), -3px 0 0 -1px rgba(29, 29, 27, 0.09);
+  filter: url(#sketchy);
+}
+html.sketch.dark .sk-selected {
+  background: rgba(235, 231, 219, 0.12) !important;
+  box-shadow: 3px 0 0 -1px rgba(235, 231, 219, 0.12), -3px 0 0 -1px rgba(235, 231, 219, 0.12);
+}
+/* 선택된 항목의 체크박스는 선을 한 번 더 그은 듯 두껍게 */
+html.sketch .sk-selected .sk-check { border-width: 2.4px !important; }
+
+/* 낙서 스킨: 항목 호버 시 글자가 너무 엷어지지 않게 */
+html.sketch .group:hover .group-hover\:opacity-70 { opacity: 0.85; }
+
+/* 설정 톱니바퀴: 기본은 아이콘만, 설정을 열면 펜이 한 바퀴 돌며 동그라미를 친다 */
+html.sketch .sk-gear {
+  position: absolute;
+  color: var(--ink) !important;
+  background: transparent !important;
+}
+html.sketch .sk-gear[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  background: var(--ink);
+  pointer-events: none;
+  transform: rotate(8deg);
+  filter: url(#sketchy);
+  /* 공선 마스케 ∩ 시계방향 스윅 마스케 → 그리기 연출. 경로 시작점(오른쪽 위)에서 반시계 */
+  --sweep: 360deg;
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path d='M 27 6.5 C 16 3, 5 10, 5.5 20.5 C 6 30, 15 36, 23 34.5 C 32 33, 36.5 26, 35 18 C 33.8 11.5, 29 7.5, 24 7' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'/></svg>"), conic-gradient(from 35deg at 50% 50%, transparent 0 calc(360deg - var(--sweep)), black 0);
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path d='M 27 6.5 C 16 3, 5 10, 5.5 20.5 C 6 30, 15 36, 23 34.5 C 32 33, 36.5 26, 35 18 C 33.8 11.5, 29 7.5, 24 7' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'/></svg>"), conic-gradient(from 35deg at 50% 50%, transparent 0 calc(360deg - var(--sweep)), black 0);
+  -webkit-mask-size: 100% 100%, 100% 100%;
+  mask-size: 100% 100%, 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  animation: pen-circle 0.5s cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+
+/* 스크롤바: 펜으로 샐뻗하게 그은 세로선 하나. 트랙은 안 보이게 */
+html.sketch .sk-scroll::-webkit-scrollbar { width: 10px; }
+html.sketch .sk-scroll::-webkit-scrollbar-track { background: transparent; }
+html.sketch .sk-scroll::-webkit-scrollbar-thumb {
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 120' preserveAspectRatio='none'><path d='M 4 2 C 5.6 14, 2.6 26, 4.2 40 C 5.5 54, 2.8 66, 4 80 C 5.3 92, 3 104, 4 118' fill='none' stroke='%238b897f' stroke-width='1.8' stroke-linecap='round' vector-effect='non-scaling-stroke'/></svg>") center / 8px 100% no-repeat;
+  border-radius: 0;
+  min-height: 36px;
+}
+html.sketch .sk-scroll::-webkit-scrollbar-thumb:hover {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 120' preserveAspectRatio='none'><path d='M 4 2 C 5.6 14, 2.6 26, 4.2 40 C 5.5 54, 2.8 66, 4 80 C 5.3 92, 3 104, 4 118' fill='none' stroke='%231d1d1b' stroke-width='1.8' stroke-linecap='round' vector-effect='non-scaling-stroke'/></svg>");
+}
+html.sketch.dark .sk-scroll::-webkit-scrollbar-thumb { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 120' preserveAspectRatio='none'><path d='M 4 2 C 5.6 14, 2.6 26, 4.2 40 C 5.5 54, 2.8 66, 4 80 C 5.3 92, 3 104, 4 118' fill='none' stroke='%2388857b' stroke-width='1.8' stroke-linecap='round' vector-effect='non-scaling-stroke'/></svg>"); }
+html.sketch.dark .sk-scroll::-webkit-scrollbar-thumb:hover { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 120' preserveAspectRatio='none'><path d='M 4 2 C 5.6 14, 2.6 26, 4.2 40 C 5.5 54, 2.8 66, 4 80 C 5.3 92, 3 104, 4 118' fill='none' stroke='%23ebe7db' stroke-width='1.8' stroke-linecap='round' vector-effect='non-scaling-stroke'/></svg>"); }
+
+/* 접힌 알약 위젯: 손글씨 폰트만 적용, 테두리·그림자는 기본 스킨 그대로 */
+html.sketch .sk-pill {
+  font-family: "Patrick Hand", "Poor Story", sans-serif;
+}
+html.sketch .sk-pill > span:first-child { color: var(--ink) !important; font-size: 14px !important; font-weight: 400; }
+html.sketch .sk-pill > span:last-child { color: var(--pencil) !important; font-size: 13px !important; }

@@ -1,0 +1,33 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ── my-day ──
+# 개인 일정 동기화 파일 (Lily가 로컬에 써주는 파일, 개인정보 포함) — 절대 커밋 금지
+calendar-today.json
+# electron-builder 출력
+release/
+# 로컬 환경
+.env
+.env.*

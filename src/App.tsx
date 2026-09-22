@@ -60,9 +60,10 @@ interface Task {
 }
 
 // 브라우저 미리보기용 목데이터 (Electron에선 구글캘린더 ICS 사용)
+// 바우저 미리보기(개발) 전용 샘플 일정 — 실제 앱에서는 사용하지 않는다
 const MOCK_EVENTS: CalEvent[] = [
-  { name: "대출 스쿼드 스탠드업", start: "11:00", end: "11:30" },
-  { name: "디자인시스템 미팅", start: "14:00", end: "15:00" },
+  { name: "주간 팀 미팅", start: "11:00", end: "11:30" },
+  { name: "점심 약속", start: "12:30", end: "13:30" },
 ];
 
 // ─── 유틸 ───────────────────────────────────────────
@@ -85,12 +86,13 @@ const nowHM = () => {
   return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
 };
 
+// 바우저 미리보기(개발) 전용 샘플 할일 — 실제 앱의 신규 사용자는 뱈 목록으로 시작한다
 const SEED: Task[] = [
-  { id: uid(), title: "대환 전용 플로우 웹 QA", status: "todo", flag: true, time: "15:00", created: today() },
-  { id: uid(), title: "대출탭 리서치", status: "todo", flag: false, created: today() },
-  { id: uid(), title: "패스트트랙 리서치", status: "todo", flag: false, created: today() },
-  { id: uid(), title: "포트폴리오 케이스 정리", status: "later", flag: false, created: today() },
-  { id: uid(), title: "디자인팀 주간 미팅 참석", status: "done", flag: false, created: today(), doneAt: today() },
+  { id: uid(), title: "프로젝트 기획서 초안 작성", status: "todo", flag: true, time: "15:00", created: today() },
+  { id: uid(), title: "디자인 리서치 정리", status: "todo", flag: false, created: today() },
+  { id: uid(), title: "운동 30분", status: "todo", flag: false, created: today() },
+  { id: uid(), title: "포트폴리오 업데이트", status: "later", flag: false, created: today() },
+  { id: uid(), title: "주간 미팅 참석", status: "done", flag: false, created: today(), doneAt: today() },
 ];
 
 function load(): Task[] {
@@ -100,7 +102,8 @@ function load(): Task[] {
   } catch {
     /* ignore */
   }
-  return SEED;
+  // 앱(Electron)에서는 뱈 목록, 바우저 미리보기에서만 샘플
+  return isElectron ? [] : SEED;
 }
 
 // ─── 완료 표시 (직선 / 낙서) ────────────────────────
@@ -1329,7 +1332,7 @@ export default function App() {
     setTasks((ts) =>
       ts.map((t) => {
         if (!groupPrompt.includes(t.id)) return t;
-        // 제목이 그룹명으로 시작하면 접두어 제거 (예: "패스트트랙 QA" → "QA")
+        // 제목이 그룹명으로 시작하면 접두어 제거 (예: "마케팅 기확서" → "기확서")
         const stripped = t.title.startsWith(name + " ")
           ? t.title.slice(name.length).trim()
           : t.title;

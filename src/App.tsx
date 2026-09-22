@@ -1565,7 +1565,7 @@ export default function App() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05, duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-          className="sk-head relative py-4 text-center text-[13px] tracking-wide text-muted"
+          className="sk-head relative py-4 text-center text-[13px] font-medium tracking-wide text-foreground/80"
         >
           {dateLabel}
           <button

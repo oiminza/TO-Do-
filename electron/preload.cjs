@@ -30,6 +30,13 @@ contextBridge.exposeInMainWorld("widget", {
   ignoreMouse: (b) => ipcRenderer.send("ignore-mouse", !!b),
   centerWindow: (on) => ipcRenderer.send("center-window", !!on),
   shadowReady: () => ipcRenderer.send("shadow-ready"),
+  pillReady: () => ipcRenderer.send("pill-ready"),
+  onPanelWindowReady: (cb) => {
+    const handler = () => cb();
+    ipcRenderer.on("panel-window-ready", handler);
+    return () => ipcRenderer.removeListener("panel-window-ready", handler);
+  },
+  pillSize: (w, h) => ipcRenderer.send("pill-size", w, h),
   appVersion: () => ipcRenderer.invoke("app-version"),
   quitApp: () => ipcRenderer.send("quit-app"),
   checkUpdate: () => ipcRenderer.invoke("check-update"),

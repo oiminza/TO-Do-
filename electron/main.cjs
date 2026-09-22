@@ -153,9 +153,18 @@ function centerOf(size) {
     y: Math.round(workArea.y + (workArea.height - size.height) / 2),
   };
 }
-// 기본 자리: 센터 모드면 가운데, 아니면 우하단
+// 기본 자리: 센터 모드면 가운데, 사용자가 옮긴 위치가 있으면 그 자리, 없으면 우하단
 function homeBounds() {
-  return clamp({ ...PANEL, ...(centered ? centerOf(PANEL) : bottomRight(PANEL)) });
+  if (centered) return clamp({ ...PANEL, ...centerOf(PANEL) });
+  const saved = loadConfig().pillCenter;
+  if (saved && Number.isFinite(saved.cx) && Number.isFinite(saved.cy)) {
+    return clamp({
+      ...PANEL,
+      x: Math.round(saved.cx + pillSize.width / 2 + PILL_IN_PANEL.right - PANEL.width),
+      y: Math.round(saved.cy + pillSize.height / 2 + PILL_IN_PANEL.bottom - PANEL.height),
+    });
+  }
+  return clamp({ ...PANEL, ...bottomRight(PANEL) });
 }
 
 function bottomRight(size) {
@@ -164,6 +173,96 @@ function bottomRight(size) {
     x: workArea.x + workArea.width - size.width - MARGIN,
     y: workArea.y + workArea.height - size.height - MARGIN,
   };
+}
+
+// ─── 창 크기: 알약일 때는 작게, 패널일 때는 크게 ────────────────────────
+// 알약인데도 창이 패널 크기(380x680)면, 알약을 위로 끌 때 "보이지 않는 창 위쪽"이
+// 메뉴 막대에 먼저 걸려 화면 상단까지 갈 수 없다. 그래서 알약일 때는 창도 알약 크기로 줄인다.
+const PILL_PAD = 14; // 그림자가 잘리지 않도록 알약 주변 여백
+const PILL_IN_PANEL = { right: 8, bottom: 20 }; // 패널 크기 창 안에서 알약이 놓이는 위치(CSS bottom-5 right-2)
+let pillSize = { width: 210, height: 52 }; // 렌더러가 실제 크기를 알려준다
+let winMode = "panel"; // 지금 창이 어느 크기인지
+let panelOpen = false; // 패널이 열려 있는 동안에는 창을 줄이면 안 된다
+
+function pillWinSize() {
+  return { width: Math.round(pillSize.width + PILL_PAD * 2), height: Math.round(pillSize.height + PILL_PAD * 2) };
+}
+
+// 알약이 화면에서 차지하는 중심 좌표 (창 크기가 달라도 이 점을 기준으로 위치를 이어받는다)
+function pillCenter() {
+  const [x, y] = win.getPosition();
+  const [w, h] = win.getSize();
+  if (winMode === "pill") return { cx: x + w / 2, cy: y + h / 2 };
+  return {
+    cx: x + w - PILL_IN_PANEL.right - pillSize.width / 2,
+    cy: y + h - PILL_IN_PANEL.bottom - pillSize.height / 2,
+  };
+}
+
+function toPillWindow() {
+  if (!win || win.isDestroyed() || placement === "menubar") return;
+  if (panelOpen) return; // 패널이 떠 있는 동안 축소 금지
+  const { cx, cy } = pillCenter();
+  const size = pillWinSize();
+  winMode = "pill";
+  win.setBounds(
+    clamp({ ...size, x: Math.round(cx - size.width / 2), y: Math.round(cy - size.height / 2) }),
+    false,
+  );
+  savePosSoon();
+}
+
+function toPanelWindow() {
+  if (!win || win.isDestroyed()) return;
+  const { cx, cy } = pillCenter();
+  winMode = "panel";
+  // 알약이 있던 자리에 알약이 그대로 보이도록 패널 창을 배치한다
+  win.setBounds(
+    clamp({
+      ...PANEL,
+      x: Math.round(cx + pillSize.width / 2 + PILL_IN_PANEL.right - PANEL.width),
+      y: Math.round(cy + pillSize.height / 2 + PILL_IN_PANEL.bottom - PANEL.height),
+    }),
+    false,
+  );
+}
+
+// 렌더러가 알려주는 알약 실제 크기 (내용에 따라 폭이 달라진다)
+let shrinkTimer = null;
+ipcMain.on("pill-size", (_e, w, h) => {
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w < 40) return;
+  pillSize = { width: w, height: h };
+  if (panelOpen) return; // 패널이 열려 있으면 크기만 기억하고 창은 그대로
+  if (winMode === "pill") {
+    toPillWindow(); // 이미 알약 창이면 폭 변화만 반영
+    return;
+  }
+  // 패널 크기 창 → 알약으로 돌아오는 중. 접힘 애니메이션이 끝난 뒤 줄여야 패널이 잘려 보이지 않는다.
+  // (앱 시작 직후엔 등장 애니메이션이 생략돼 "완료" 신호가 오지 않으므로 이 경로로 줄인다)
+  clearTimeout(shrinkTimer);
+  shrinkTimer = setTimeout(toPillWindow, 340);
+});
+
+// 알약 등장 애니메이션이 끝났다 → 창을 알약 크기로 줄이고 그림자 복구
+ipcMain.on("pill-ready", () => {
+  // 패널이 열려 있는데 도착한 신호 = 알약이 "사라지는" 애니메이션이 끝난 것이므로 무시한다
+  if (panelOpen) {
+    restoreShadow();
+    return;
+  }
+  toPillWindow();
+  restoreShadow();
+});
+
+// 사용자가 옮겨둔 창 위치를 기억한다 (드래그 중엔 잦은 저장을 피해 디바운스)
+let savePosTimer = null;
+function savePosSoon() {
+  clearTimeout(savePosTimer);
+  savePosTimer = setTimeout(() => {
+    if (!win || win.isDestroyed() || placement === "menubar" || centered) return;
+    const { cx, cy } = pillCenter();
+    saveConfig({ ...loadConfig(), pillCenter: { cx: Math.round(cx), cy: Math.round(cy) } });
+  }, 400);
 }
 
 // 화면 밖으로 나가지 않게 보정
@@ -259,6 +358,7 @@ function destroyTray() {
 function applyPlacement() {
   if (!win) return;
   suspendShadow(700);
+  winMode = "panel";
   if (placement === "menubar") {
     createTray();
     win.hide();
@@ -323,12 +423,18 @@ function suspendShadow(ms = 700) {
 
 ipcMain.on("set-mode", (_e, mode) => {
   suspendShadow();
+  if (mode === "widget") panelOpen = false;
   if (!win || placement === "menubar") return;
   if (mode === "panel") {
+    panelOpen = true;
+    clearTimeout(shrinkTimer);
+    toPanelWindow();
     win.setIgnoreMouseEvents(false);
     win.show();
     win.focus();
     app.focus({ steal: true });
+    // 창이 패널 크기로 커진 뒤에 패널을 그려야 잘리지 않는다
+    win.webContents.send("panel-window-ready");
   }
 });
 
@@ -367,6 +473,7 @@ ipcMain.on("center-window", (_e, on) => {
   if (!win) return;
   centered = !!on;
   suspendShadow();
+  if (on) winMode = "panel";
   win.setBounds(homeBounds(), false);
 });
 
@@ -381,6 +488,7 @@ ipcMain.on("move-by", (_e, dx, dy) => {
   if (!win || placement === "menubar") return;
   const [x, y] = win.getPosition();
   win.setPosition(x + Math.round(dx), y + Math.round(dy), false);
+  savePosSoon();
 });
 
 app.whenReady().then(() => {

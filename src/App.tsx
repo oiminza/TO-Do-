@@ -22,6 +22,9 @@ declare global {
       ignoreMouse: (ignore: boolean) => void;
       centerWindow: (on: boolean) => void;
       shadowReady: () => void;
+      pillReady: () => void;
+      onPanelWindowReady: (cb: () => void) => () => void;
+      pillSize: (w: number, h: number) => void;
       appVersion: () => Promise<string>;
       quitApp: () => void;
       checkUpdate: () => Promise<UpdateInfo>;
@@ -1148,16 +1151,25 @@ export default function App() {
   const onboardedRef = useRef(onboarded);
   onboardedRef.current = onboarded;
   // 온보딩 중엔 창을 화면 정가운데에, 끝나면 원래 자리(우하단)로
+  const wasOnboarded = useRef(onboarded);
   useEffect(() => {
     if (!isElectron) return;
-    const apply = () => {
-      window.widget?.centerWindow(!onboarded && open);
-      if (!onboarded && open) window.widget?.setMode("panel");
-    };
-    apply();
-    // 앱 시작 직후엔 main이 창 위치를 우하단으로 다시 잡을 수 있어 한 박자 뒤 재적용
-    const t = setTimeout(apply, 400);
-    return () => clearTimeout(t);
+    if (!onboarded) {
+      // 온보딩 중에는 패널을 화면 정가운데에 (앱 시작 직후 main이 위치를 다시 잡을 수 있어 한 박자 뒤 재적용)
+      const apply = () => {
+        window.widget?.centerWindow(open);
+        if (open) window.widget?.setMode("panel");
+      };
+      apply();
+      const t = setTimeout(apply, 400);
+      return () => clearTimeout(t);
+    }
+    // 온보딩을 막 끝낸 순간에만 기본 자리로 복귀.
+    // 그 뒤에는 위치를 건드리지 않는다 — 사용자가 옮겨둔 자리를 유지하기 위해.
+    if (!wasOnboarded.current) {
+      window.widget?.centerWindow(false);
+      wasOnboarded.current = true;
+    }
   }, [onboarded, open]);
   const finishOnboarding = () => {
     // DEV 강제 모드에서는 실제 상태를 저장하지 않고 화면만 닫는다 (새로고침하면 다시 보임)
@@ -1268,19 +1280,42 @@ export default function App() {
     return () => mq.removeEventListener("change", onChange);
   }, [theme]);
 
+  // 패널을 여는 중(창은 커졌지만 아직 패널을 그리기 전) 구간.
+  // 이 동안 클릭 통과를 켜거나 포커스 아웃으로 접으면 "열리자마자 닫히는" 현상이 생긴다.
+  const [opening, setOpening] = useState(false);
+  const openingRef = useRef(false);
+  openingRef.current = opening;
+  const openRef = useRef(false);
+  openRef.current = open;
+
   const openPanel = () => {
-    setOpen(true);
-    window.widget?.setMode("panel");
+    if (!isElectron) {
+      setOpen(true);
+      refreshEvents();
+      return;
+    }
+    setOpening(true);
+    window.widget?.setMode("panel"); // main이 창을 패널 크기로 키운 뒤 신호를 보낸다
     if (!onboardedRef.current) window.widget?.centerWindow(true);
-    refreshEvents();
   };
+
+  // 창이 패널 크기가 되면 그때 패널을 그린다 (작은 창에 그려서 잘리는 것 방지)
+  useEffect(() => {
+    if (!isElectron) return;
+    return window.widget?.onPanelWindowReady(() => {
+      setOpen(true);
+      setOpening(false);
+      refreshEvents();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 다른 곳 클릭(포커스 아웃) → 패널을 위젯으로 접기
   useEffect(() => {
     if (!isElectron) return;
     return window.widget?.onBlur(() => {
-      // 온보딩 중에는 바깥을 눌러도 접히지 않음
-      if (!onboardedRef.current) return;
+      // 온보딩 중이거나 패널을 여는 중에는 접지 않음
+      if (!onboardedRef.current || openingRef.current) return;
       // (화면에 띄우기 모드에서만 도착 — 메뉴 막대 모드는 main이 창을 숨김)
       setOpen((o) => {
         if (o) window.widget?.setMode("widget");
@@ -1678,21 +1713,48 @@ export default function App() {
 
   // 알약(미니 위젯) — hover 시에만 클릭을 받고, 나문 투명 영역은 뒤 화면으로 클릭 통과
   const [hoverPill, setHoverPill] = useState(false);
+  // 창이 알약 크기로 줄어들면 알약을 창 가운데에, 패널 크기일 땐 우하단에 그린다
+  const [smallWin, setSmallWin] = useState(() => (typeof window !== "undefined" ? window.innerWidth < 300 : false));
+  useEffect(() => {
+    if (!isElectron) return;
+    const onResize = () => setSmallWin(window.innerWidth < 300);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  // 알약 실제 크기를 main에 알려줘 창 크기를 맞춘다 (내용에 따라 폭이 달라짐)
+  const pillRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!isElectron || open) return;
+    const el = pillRef.current;
+    if (!el) return;
+    const report = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0) window.widget?.pillSize(Math.ceil(r.width), Math.ceil(r.height));
+    };
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open, todoCount, nextEvent]);
   useEffect(() => {
     if (!isElectron) return;
     if (placement !== "floating") return window.widget?.ignoreMouse(false);
-    window.widget?.ignoreMouse(!open && !hoverPill);
-  }, [open, hoverPill, placement]);
+    window.widget?.ignoreMouse(!open && !opening && !hoverPill);
+  }, [open, opening, hoverPill, placement]);
 
   const pillEl = (
     <motion.div
       key="pill"
-      className="absolute bottom-5 right-2"
+      className={smallWin ? "absolute inset-0 flex items-center justify-center" : "absolute bottom-5 right-2"}
       initial={{ opacity: 0, scale: 0.85 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.85 }}
       transition={{ type: "spring", stiffness: 520, damping: 34, mass: 0.7 }}
-      onAnimationComplete={() => window.widget?.shadowReady()}
+      onAnimationComplete={() => {
+        // 등장/퇴장 모두 여기로 오므로, 알약이 "보이는" 상태일 때만 창 축소를 요청한다
+        if (!openRef.current) window.widget?.pillReady();
+      }}
       style={{ originX: 1, originY: 1, willChange: "transform, opacity", backfaceVisibility: "hidden" }}
       onMouseEnter={() => setHoverPill(true)}
       onMouseLeave={() => setHoverPill(false)}
@@ -1700,6 +1762,7 @@ export default function App() {
       {/* 낙서 스킨 필터 — 패널이 닫혀 있을 때도 알약 테두리가 그리어지도록 */}
       <SketchFilter />
       <button
+        ref={pillRef}
         onMouseDown={onWidgetMouseDown}
         className="sk-pill flex cursor-grab items-center gap-2.5 rounded-full border border-black/8 bg-white py-3 pl-5 pr-5 transition-transform hover:scale-[1.03] active:cursor-grabbing dark:border-white/10 dark:bg-background-secondary/75"
       >

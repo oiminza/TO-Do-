@@ -91,6 +91,20 @@ const MARGIN = 8; // 창 자체에 이미 8px 안쪽 여백이 있어 실제 화
 
 let win = null;
 
+// 온보딩 동안 true: 이 동안에는 모든 자동 재배치가 우하단 대신 화면 정가운데를 향함
+let centered = false;
+function centerOf(size) {
+  const { workArea } = screen.getPrimaryDisplay();
+  return {
+    x: Math.round(workArea.x + (workArea.width - size.width) / 2),
+    y: Math.round(workArea.y + (workArea.height - size.height) / 2),
+  };
+}
+// 기본 자리: 센터 모드면 가운데, 아니면 우하단
+function homeBounds() {
+  return clamp({ ...PANEL, ...(centered ? centerOf(PANEL) : bottomRight(PANEL)) });
+}
+
 function bottomRight(size) {
   const { workArea } = screen.getPrimaryDisplay();
   return {
@@ -126,7 +140,7 @@ function createWindow() {
     backgroundColor: "#00000000", // 리사이즈 시 투명 배경이 검게 변하는 버그 방지
     resizable: false,
     alwaysOnTop: true,
-    hasShadow: false,
+    hasShadow: true, // 투명 창이지만 macOS가 내용(알파) 모양을 따라 그림자를 그려줌
     skipTaskbar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -145,7 +159,10 @@ function createWindow() {
   //  - 메뉴 막대: 창 자체를 숨김
   win.on("blur", () => {
     if (placement === "menubar") win?.hide();
-    else win?.webContents.send("window-blur");
+    else {
+      win?.webContents.send("window-blur");
+      refreshShadow(); // 패널 → 알약으로 접힐 때도 그림자 갱신
+    }
   });
 
   win.webContents.on("did-finish-load", () => applyPlacement());
@@ -158,7 +175,7 @@ let trayTitle = "";
 
 function showPanelUnderTray(fromTray = false) {
   if (!win || !tray) return;
-  win.setBounds(clamp({ ...PANEL, ...bottomRight(PANEL) }), false);
+  win.setBounds(homeBounds(), false);
   win.setBackgroundColor("#00000000");
   win.setIgnoreMouseEvents(false);
   win.show();
@@ -191,12 +208,12 @@ function applyPlacement() {
   if (placement === "menubar") {
     createTray();
     win.hide();
-    win.setBounds(clamp({ ...PANEL, ...bottomRight(PANEL) }), false);
+    win.setBounds(homeBounds(), false);
   } else {
     destroyTray();
     // 패널이 작은 창에 짜부라지는 순간이 보이지 않게: 숨기고 → 크기 변경 → 렌더러가 위젯 모드로 그린 뒤 표시
     win.hide();
-    win.setBounds(clamp({ ...PANEL, ...bottomRight(PANEL) }), false);
+    win.setBounds(homeBounds(), false);
     win.setBackgroundColor("#00000000");
     win.webContents.send("placement", placement);
     setTimeout(() => {
@@ -223,7 +240,14 @@ ipcMain.on("tray-title", (_e, t) => {
 });
 
 // 모드 전환: 패널이 열릴 때 포커스만 가져옴 (바깥 클릭 시 blur로 접히기 위해)
+function refreshShadow() {
+  // 알약 ↔ 패널 전환 애니메이션(≈300ms) 끝난 뒤 그림자를 새 모양에 맞게 다시 그린다
+  setTimeout(() => win?.invalidateShadow?.(), 420);
+  setTimeout(() => win?.invalidateShadow?.(), 900);
+}
+
 ipcMain.on("set-mode", (_e, mode) => {
+  refreshShadow();
   if (!win || placement === "menubar") return;
   if (mode === "panel") {
     win.setIgnoreMouseEvents(false);
@@ -236,19 +260,9 @@ ipcMain.on("set-mode", (_e, mode) => {
 // 온보딩: 창을 화면 정가운데로 (끝나면 우하단으로 복귀)
 ipcMain.on("center-window", (_e, on) => {
   if (!win) return;
-  if (on) {
-    const { workArea } = screen.getPrimaryDisplay();
-    win.setBounds(
-      {
-        ...PANEL,
-        x: Math.round(workArea.x + (workArea.width - PANEL.width) / 2),
-        y: Math.round(workArea.y + (workArea.height - PANEL.height) / 2),
-      },
-      false,
-    );
-  } else {
-    win.setBounds(clamp({ ...PANEL, ...bottomRight(PANEL) }), false);
-  }
+  centered = !!on;
+  refreshShadow();
+  win.setBounds(homeBounds(), false);
 });
 
 // 알약 상태: 투명 영역 클릭을 뒤로 통과 (forward: hover는 계속 감지)

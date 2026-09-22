@@ -694,7 +694,9 @@ function Onboarding({
                 className="mb-3 w-[220px] select-none"
               />
               <h1 className="text-[22px] font-bold leading-snug text-foreground">
-                My Day에 오신 것을 환영해요
+                My Day에 오신 것을
+                <br />
+                환영해요
               </h1>
               <p className="mt-2 text-[14px] text-muted">업무 관리를 시작해볼까요?</p>
             </div>
@@ -1015,8 +1017,14 @@ export default function App() {
   // 온보딩 중엔 창을 화면 정가운데에, 끝나면 원래 자리(우하단)로
   useEffect(() => {
     if (!isElectron) return;
-    window.widget?.centerWindow(!onboarded);
-    if (!onboarded) window.widget?.setMode("panel");
+    const apply = () => {
+      window.widget?.centerWindow(!onboarded);
+      if (!onboarded) window.widget?.setMode("panel");
+    };
+    apply();
+    // 앱 시작 직후엔 main이 창 위치를 우하단으로 다시 잡을 수 있어 한 박자 뒤 재적용
+    const t = setTimeout(apply, 400);
+    return () => clearTimeout(t);
   }, [onboarded]);
   const finishOnboarding = () => {
     // DEV 강제 모드에서는 실제 상태를 저장하지 않고 화면만 닫는다 (새로고침하면 다시 보임)

@@ -557,6 +557,89 @@ function DoneChart({ tasks }: { tasks: Task[] }) {
   );
 }
 
+// ─── 스킨 미리보기 (온보딩용 미니 위젯) ─────────────────────────────
+// 스킨 클래스(html.sketch)에 의존하지 않고 인라인으로 그려서, 어떤 스킨이 켜져 있어도 두 카드가 각자 모습을 유지한다
+function SkinPreviewDefault() {
+  return (
+    <div className="h-[118px] w-full overflow-hidden rounded-xl bg-[#e9e9ec] p-2 font-mono" aria-hidden>
+      <div className="h-full rounded-[10px] bg-white p-2 shadow-sm">
+        <div className="flex rounded-full bg-[#f2f2f4] p-[2px] text-[7px] text-[#555]">
+          <span className="flex-1 rounded-full bg-white py-[3px] text-center text-black shadow-sm">To-do</span>
+          <span className="flex-1 py-[3px] text-center">Later</span>
+          <span className="flex-1 py-[3px] text-center">Done</span>
+        </div>
+        <div className="mt-2 space-y-[6px] px-0.5 text-[8px] text-black">
+          <div className="flex items-center gap-1.5">
+            <span className="h-[8px] w-[8px] rounded-full bg-black" />
+            <span className="text-[#8a8a8e] line-through">리서치 정리</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-[8px] w-[8px] rounded-full border border-[#c9c9ce]" />
+            <span>주간 미팅 준비</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-[8px] w-[8px] rounded-full border border-[#c9c9ce]" />
+            <span>디자인 QA</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SkinPreviewSketch() {
+  const ink = "#1d1d1b";
+  return (
+    <div
+      className="relative h-[118px] w-full overflow-hidden rounded-xl bg-white p-2"
+      style={{ fontFamily: '"Patrick Hand", "Poor Story", sans-serif', color: ink }}
+      aria-hidden
+    >
+      {/* 뜯긴 왼쪽 + 삐뚤한 테두리 */}
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 150 118" preserveAspectRatio="none">
+        <path
+          d="M12 8 C 40 6, 90 9, 142 8 L 143 110 C 100 112, 50 110, 12 111 L 12 100 C 6 98, 6 92, 12 90 L 12 78 C 6 76, 6 70, 12 68 L 12 56 C 6 54, 6 48, 12 46 L 12 34 C 6 32, 6 26, 12 24 Z"
+          fill="none"
+          stroke={ink}
+          strokeWidth="1.4"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <div className="relative pl-4 pr-2 pt-1.5">
+        <div className="flex justify-between px-1 text-[8.5px]" style={{ color: "#8b897f" }}>
+          <span className="relative" style={{ color: ink }}>
+            To-do
+            <svg className="absolute -left-[5px] -top-[3px] h-[16px] w-[30px]" viewBox="0 0 30 16" fill="none" stroke={ink} strokeWidth="1.1">
+              <path d="M19 2 C 11 1, 3 3, 2.5 8 C 2 12, 8 15, 15 14.5 C 22 14, 28 11, 27.5 7 C 27 4, 23 2, 18 2.3" />
+            </svg>
+          </span>
+          <span>Later</span>
+          <span>Done</span>
+        </div>
+        <div className="mt-2.5 space-y-[6px] text-[9px]">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-[9px] w-[9px] rounded-[50%_46%_52%_48%/48%_52%_46%_54%] border-[1.3px]" style={{ borderColor: ink, background: ink }} />
+            <span className="relative" style={{ color: "#8b897f" }}>
+              리서치 정리
+              <svg className="absolute left-0 top-1/2 h-[6px] w-full -translate-y-1/2" viewBox="0 0 60 6" preserveAspectRatio="none" fill="none" stroke={ink} strokeWidth="1.2">
+                <path d="M1 3 C 15 1, 30 5, 45 2.5 S 55 4, 59 3" />
+              </svg>
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-[9px] w-[9px] rotate-12 rounded-[55%_45%_47%_53%/47%_55%_45%_53%] border-[1.3px]" style={{ borderColor: ink }} />
+            <span>주간 미팅 준비</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-[9px] w-[9px] -rotate-6 rounded-[46%_54%_50%_50%/56%_46%_54%_44%] border-[1.3px]" style={{ borderColor: ink }} />
+            <span>디자인 QA</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── 온보딩 화면: 환영 → 스킨 → 캘린더 → 시작 ─────────────────────
 function Onboarding({
   look,
@@ -630,42 +713,24 @@ function Onboarding({
                   ] as const
                 ).map(([key, label, desc]) => {
                   const on = look === key;
-                  const sk = key === "sketch";
                   return (
                     <button
                       key={key}
                       onClick={() => onLook(key)}
                       aria-pressed={on}
-                      className={`sk-box flex flex-col items-start gap-2 rounded-2xl border p-3.5 text-left transition-colors ${
-                        on
-                          ? "border-foreground bg-background-secondary"
-                          : "border-black/8 hover:bg-background-secondary dark:border-white/10"
+                      className={`relative flex flex-col items-stretch gap-2.5 rounded-2xl border-2 p-2.5 text-left transition-colors ${
+                        on ? "border-foreground" : "border-black/10 hover:border-black/25 dark:border-white/12"
                       }`}
                     >
-                      <div
-                        className={`w-full rounded-lg px-2.5 py-2 text-[11px] text-foreground ${
-                          sk ? "border border-foreground" : "bg-surface"
-                        }`}
-                        style={sk ? { fontFamily: '"Patrick Hand", "Poor Story", sans-serif' } : undefined}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`inline-block h-[10px] w-[10px] border border-foreground ${
-                              sk ? "rounded-[50%_46%_52%_48%/48%_52%_46%_54%]" : "rounded-full bg-foreground"
-                            }`}
-                          />
-                          <span className={sk ? "" : "text-muted line-through"}>리서치 정리</span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <span
-                            className={`inline-block h-[10px] w-[10px] border border-foreground ${
-                              sk ? "rotate-12 rounded-[52%_48%_50%_50%/48%_52%_48%_52%]" : "rounded-full"
-                            }`}
-                          />
-                          <span>주간 미팅 준비</span>
-                        </div>
-                      </div>
-                      <div>
+                      {on && (
+                        <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-background shadow-sm">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <polyline points="4 12 10 18 20 6" />
+                          </svg>
+                        </span>
+                      )}
+                      {key === "sketch" ? <SkinPreviewSketch /> : <SkinPreviewDefault />}
+                      <div className="px-1 pb-0.5">
                         <p className="text-[13.5px] font-semibold text-foreground">{label}</p>
                         <p className="text-[11.5px] text-muted">{desc}</p>
                       </div>

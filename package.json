@@ -33,7 +33,7 @@
     "vite": "^8.2.2"
   },
   "main": "electron/main.cjs",
-  "description": "맥 벤뉴바/플로팅 투두 위젯 — 오늘 할 일과 일정을 한 눈에",
+  "description": "맥 메뉴바/플로팅 투두 위젯 — 오늘 할 일과 일정을 한 눈에",
   "author": "oiminza",
   "license": "MIT",
   "homepage": "https://github.com/oiminza/TO-Do-",

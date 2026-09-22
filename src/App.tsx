@@ -754,8 +754,8 @@ function Onboarding({
               <ol className="mt-5 space-y-2.5 text-[12.5px] leading-relaxed text-foreground">
                 {[
                   <>구글 캘린더(웹) 우측 상단 <b>⚙ → 설정</b></>,
-                  <>왼쪽 <b>내 캘린더</b>에서 연동할 캘린더 클릭</>,
-                  <>아래로 내려 <b>iCal 형식의 비공개 주소</b>를 복사</>,
+                  <>왼쪽 목록을 아래로 내려 <b>내 캘린더의 설정</b> 아래에 있는 <b>내 이름</b>(기본 캘린더)을 클릭</>,
+                  <>오른쪽 화면을 맨 아래까지 내려 <b>캘린더 통합</b> 아래 <b>iCal 형식의 비공개 주소</b> 복사</>,
                   <>아래 칸에 붙여넣고 <b>연결</b></>,
                 ].map((t, i) => (
                   <li key={i} className="flex gap-2.5">
@@ -1765,7 +1765,7 @@ export default function App() {
                   {isElectron && calEditing && (
                     <div className="flex flex-col gap-3 px-4 py-4">
                       <p className="text-[11.5px] leading-relaxed text-muted">
-                        구글캘린더 → 설정 → 내 캘린더 → <b>iCal 형식의 비공개 주소</b> 복사.
+                        구글 캘린더 → ⚙ 설정 → 왼쪽 <b>내 캘린더의 설정</b> 아래 <b>내 이름</b> 클릭 → 맨 아래 <b>iCal 형식의 비공개 주소</b> 복사.
                         주소는 이 컴퓨터에만 저장됩니다.
                       </p>
                       <div className="flex items-center gap-2">

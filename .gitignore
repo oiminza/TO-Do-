@@ -35,3 +35,6 @@ build/icon-src.png
 build/icon-preview.png
 build/dist.log
 !.env.example
+
+# Google OAuth 클라이언트 자격증붅 — 절대 커밋 금지
+electron/secrets/

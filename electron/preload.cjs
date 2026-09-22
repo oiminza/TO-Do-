@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld("widget", {
     return () => ipcRenderer.removeListener("window-blur", handler);
   },
   calendarSetUrl: (url) => ipcRenderer.invoke("calendar-set-url", url),
+  googleStatus: () => ipcRenderer.invoke("google-status"),
+  googleSignIn: () => ipcRenderer.invoke("google-sign-in"),
+  googleSignOut: () => ipcRenderer.invoke("google-sign-out"),
   calendarGetUrl: () => ipcRenderer.invoke("calendar-get-url"),
   getPlacement: () => ipcRenderer.invoke("get-placement"),
   setPlacement: (p) => ipcRenderer.send("set-placement", p),

@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage, shell } = requir
 const path = require("path");
 const fs = require("fs");
 const nodeIcal = require("node-ical");
+const gauth = require("./googleAuth.cjs");
 
 // ─── 캘린더 설정 (비밀 ICS URL은 로컬 config.json에만 저장) ───
 const configPath = () => path.join(app.getPath("userData"), "config.json");
@@ -28,6 +29,11 @@ ipcMain.handle("calendar-set-url", (_e, url) => {
 // 설정 화면에서 현재 저장된 주소 확인용
 ipcMain.handle("calendar-get-url", () => loadConfig().icsUrl || "");
 
+// ─── Google 로그인 (OAuth) ───
+ipcMain.handle("google-status", () => gauth.status());
+ipcMain.handle("google-sign-in", () => gauth.signIn());
+ipcMain.handle("google-sign-out", () => gauth.signOut());
+
 // (개발 전용) 로컬 일정 파일 — 프로젝트 루트/calendar-today.json 이 있으면 ICS 없이도 오늘 일정을 보여준다.
 // 배포된 앱에서는 사용하지 않고(개인 파일), 설정의 ICS URL로만 동작한다.
 const localEventsPath = path.join(__dirname, "..", "calendar-today.json");
@@ -52,6 +58,26 @@ function saveCache(events) {
 
 ipcMain.handle("calendar-events", async () => {
   const { icsUrl } = loadConfig();
+
+  // 1) Google 로그인 상태면 Calendar API 로 (Workspace 계정도 동작)
+  if (gauth.status().signedIn) {
+    try {
+      const r = await gauth.fetchTodayEvents();
+      if (r.ok) {
+        saveCache(r.events);
+        return { configured: true, source: "google", events: r.events, fetchedAt: Date.now() };
+      }
+      if (r.reason === "not_signed_in") return { configured: !!icsUrl, source: "google", events: [], error: "signed_out" };
+      const cached = loadCache();
+      return { configured: true, source: "google", events: cached ? cached.events : [], error: /429/.test(r.reason) ? "rate_limited" : "error" };
+    } catch (e) {
+      const cached = loadCache();
+      const msg = String(e?.message || e);
+      return { configured: true, source: "google", events: cached ? cached.events : [], error: /ENOTFOUND|ECONN|fetch failed/i.test(msg) ? "offline" : "error" };
+    }
+  }
+
+  // 2) ICS 주소 (개인 Gmail / iCloud 등)
   if (!icsUrl) {
     if (app.isPackaged) return { configured: false, events: [] };
     try {

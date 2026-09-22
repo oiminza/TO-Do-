@@ -10,6 +10,9 @@ declare global {
       moveBy: (dx: number, dy: number) => void;
       onBlur: (cb: () => void) => () => void;
       calendarSetUrl: (url: string) => Promise<boolean>;
+      googleStatus: () => Promise<GoogleStatus>;
+      googleSignIn: () => Promise<{ ok: boolean; email?: string; reason?: string }>;
+      googleSignOut: () => Promise<boolean>;
       calendarGetUrl: () => Promise<string>;
       getPlacement: () => Promise<Placement>;
       setPlacement: (p: Placement) => void;
@@ -24,9 +27,10 @@ declare global {
       openExternal: (url: string) => Promise<void>;
       calendarEvents: () => Promise<{
         configured: boolean;
+        source?: "google" | "ics" | "local";
         events: CalEvent[];
         fetchedAt?: number | null;
-        error?: "rate_limited" | "offline" | "error";
+        error?: "rate_limited" | "offline" | "error" | "signed_out";
       }>;
     };
   }
@@ -114,6 +118,8 @@ const StrikeCtx = createContext<StrikeStyle>("line");
 // ─── 스킨 (기본 / 낙서) ───────────────────────────────
 // 낙서: 종이 배경 + 손글씨 + 샐뻗한 테두리/선 + 노란 형광펜 탭. <html class="sketch">로 켜짐
 type Look = "default" | "sketch";
+
+type GoogleStatus = { signedIn: boolean; email: string; clientConfigured: boolean };
 
 // ─── 정보 / 업데이트 ────────────────────────────────────────────────
 const REPO_URL = "https://github.com/oiminza/TO-Do-";
@@ -578,6 +584,17 @@ function DoneChart({ tasks }: { tasks: Task[] }) {
   );
 }
 
+function GoogleG() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M21.6 12.23c0-.68-.06-1.36-.18-2.02H12v3.83h5.4a4.62 4.62 0 0 1-2 3.03v2.5h3.23c1.89-1.74 2.97-4.3 2.97-7.34z" />
+      <path d="M12 21.6c2.7 0 4.96-.9 6.62-2.43l-3.23-2.5c-.9.6-2.04.96-3.39.96-2.6 0-4.8-1.76-5.59-4.12H3.08v2.58A9.99 9.99 0 0 0 12 21.6z" />
+      <path d="M6.41 13.51A6 6 0 0 1 6.1 12c0-.52.1-1.03.3-1.51V7.9H3.08A9.98 9.98 0 0 0 2 12c0 1.61.39 3.14 1.08 4.1l3.33-2.59z" />
+      <path d="M12 6.38c1.47 0 2.78.5 3.82 1.5l2.86-2.86A9.98 9.98 0 0 0 12 2.4a9.99 9.99 0 0 0-8.92 5.5l3.33 2.59C7.2 8.13 9.4 6.38 12 6.38z" />
+    </svg>
+  );
+}
+
 // ─── 스킨 미리보기 (온보딩용 미니 위젯) ─────────────────────────────
 // 스킨 클래스(html.sketch)에 의존하지 않고 인라인으로 그려서, 어떤 스킨이 켜져 있어도 두 카드가 각자 모습을 유지한다
 function SkinPreviewDefault() {
@@ -666,18 +683,27 @@ function Onboarding({
   look,
   onLook,
   calConnected,
+  googleEmail,
+  googleBusy,
+  googleErr,
+  onGoogleSignIn,
   onSaveIcs,
   onDone,
 }: {
   look: Look;
   onLook: (l: Look) => void;
   calConnected: boolean;
+  googleEmail: string;
+  googleBusy: boolean;
+  googleErr: string;
+  onGoogleSignIn: () => void;
   onSaveIcs: (url: string) => Promise<void>;
   onDone: () => void;
 }) {
   const [step, setStep] = useState(0);
   const [ics, setIcs] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showIcs, setShowIcs] = useState(false);
   const STEPS = 3;
   const next = () => setStep((v) => Math.min(STEPS - 1, v + 1));
   const back = () => setStep((v) => Math.max(0, v - 1));
@@ -694,11 +720,11 @@ function Onboarding({
   };
 
   return (
-    <div className="flex h-full flex-col px-6 pb-6 pt-6">
+    <div className="flex h-full flex-col pb-6 pt-6">
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={step}
-          className="flex flex-1 flex-col"
+          className="sk-scroll flex min-h-0 flex-1 flex-col overflow-y-auto px-6"
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -16 }}
@@ -746,7 +772,7 @@ function Onboarding({
                       }`}
                     >
                       {on && (
-                        <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-background shadow-sm">
+                        <span className="absolute right-2 top-2 z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-foreground text-background ring-2 ring-surface">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                             <polyline points="4 12 10 18 20 6" />
                           </svg>
@@ -769,60 +795,93 @@ function Onboarding({
             <>
               <h1 className="text-[20px] font-bold leading-snug text-foreground">구글 캘린더 연동</h1>
               <p className="mt-2 text-[13px] leading-relaxed text-muted">
-                오늘 일정이 할 일 위에 함께 보여요. 주소는 이 맥에만 저장되고 어디에도 전송되지 않습니다.
+                오늘 일정이 할 일 위에 함께 보여요. 일정은 <b className="text-foreground">읽기만</b> 하고, 이 맥 밖으로 나가지 않습니다.
               </p>
-
-              <ol className="mt-5 space-y-2.5 text-[12.5px] leading-relaxed text-foreground">
-                {[
-                  <>구글 캘린더(웹) 우측 상단 <b>⚙ → 설정</b></>,
-                  <>왼쪽 목록을 아래로 내려 <b>내 캘린더의 설정</b> 아래에 있는 <b>내 이름</b>(기본 캘린더)을 클릭</>,
-                  <>오른쪽 화면을 맨 아래까지 내려 <b>캘린더 통합</b> 아래 <b>iCal 형식의 비공개 주소</b> 복사</>,
-                  <>아래 칸에 붙여넣고 <b>연결</b></>,
-                ].map((t, i) => (
-                  <li key={i} className="flex gap-2.5">
-                    <span className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-foreground text-[10.5px] font-bold text-background">
-                      {i + 1}
-                    </span>
-                    <span>{t}</span>
-                  </li>
-                ))}
-              </ol>
 
               {calConnected ? (
-                <div className="mt-5 flex items-center gap-2 rounded-xl border border-foreground px-4 py-3 text-[13px] text-foreground">
-                  <span aria-hidden>✓</span> 연결되었어요. 오늘 일정을 불러옵니다.
+                <div className="mt-6">
+                  <div className="flex items-center gap-2 rounded-xl border border-foreground px-4 py-3 text-[13px] text-foreground">
+                    <span aria-hidden>✓</span>
+                    <span className="min-w-0 truncate">
+                      연결되었어요{googleEmail ? ` · ${googleEmail}` : ""}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-[11.5px] text-muted">오늘 일정을 바로 불러올게요.</p>
                 </div>
               ) : (
-                <div className="mt-5 flex items-end gap-2">
-                  <input
-                    value={ics}
-                    onChange={(e) => setIcs(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") saveIcs();
-                    }}
-                    placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"
-                    className="sk-underline min-w-0 flex-1 border-b border-foreground bg-transparent py-2 font-mono text-[12px] text-foreground outline-none placeholder:text-muted"
-                  />
+                <>
                   <button
-                    onClick={saveIcs}
-                    disabled={!icsValid || saving}
-                    className="flex-shrink-0 cursor-pointer rounded-lg bg-foreground px-3.5 py-2 text-[12.5px] font-semibold text-background transition-opacity disabled:cursor-default disabled:opacity-30"
+                    onClick={onGoogleSignIn}
+                    disabled={googleBusy}
+                    className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl bg-foreground px-4 py-3 text-[13.5px] font-semibold text-background transition-opacity hover:opacity-85 disabled:cursor-default disabled:opacity-50"
                   >
-                    {saving ? "연결 중…" : "연결"}
+                    <GoogleG />
+                    {googleBusy ? "브라우저에서 허용을 눌러주세요…" : "Google 계정으로 연결"}
                   </button>
-                </div>
+                  {googleErr && <p className="mt-2 text-[12px] leading-relaxed text-danger">{googleErr}</p>}
+
+                  <ol className="mt-3.5 space-y-1.5 text-[11.5px] leading-relaxed text-foreground">
+                    {[
+                      <>브라우저가 열리면 <b>사용할 계정</b>을 선택해요 (회사 계정도 됩니다)</>,
+                      <><b>확인되지 않은 앱</b> 안내가 나오면 <b>고급</b> → <b>My Day(으)로 이동</b></>,
+                      <>캘린더 <b>보기 권한</b>을 <b>허용</b></>,
+                      <>브라우저에 <b>완료</b>가 보이면 이 창으로 돌아오세요</>,
+                    ].map((t, i) => (
+                      <li key={i} className="flex gap-2.5">
+                        <span className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-foreground text-[10.5px] font-bold text-background">
+                          {i + 1}
+                        </span>
+                        <span>{t}</span>
+                      </li>
+                    ))}
+                  </ol>
+
+                  <p className="mt-3 rounded-lg bg-background-secondary px-3 py-2 text-[11px] leading-relaxed text-muted">
+                    아직 테스트 중인 앱이라 <b className="text-foreground">미리 승인된 계정</b>만 연결할 수 있어요. 연결이 막히면 쓰시는 계정을 만든 사람에게 알려주세요.
+                  </p>
+
+                  <button
+                    onClick={() => setShowIcs((v) => !v)}
+                    className="mt-3 cursor-pointer text-left text-[12px] text-muted underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    {showIcs ? "▾" : "▸"} iCloud·iCal 주소로 연결하기
+                  </button>
+                  {showIcs && (
+                    <div className="mt-3">
+                      <div className="flex items-end gap-2">
+                        <input
+                          value={ics}
+                          onChange={(e) => setIcs(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveIcs();
+                          }}
+                          placeholder="https://…/basic.ics"
+                          className="sk-underline min-w-0 flex-1 border-b border-foreground bg-transparent py-2 font-mono text-[12px] text-foreground outline-none placeholder:text-muted"
+                        />
+                        <button
+                          onClick={saveIcs}
+                          disabled={!icsValid || saving}
+                          className="flex-shrink-0 cursor-pointer rounded-lg bg-foreground px-3.5 py-2 text-[12.5px] font-semibold text-background transition-opacity disabled:cursor-default disabled:opacity-30"
+                        >
+                          {saving ? "연결 중…" : "연결"}
+                        </button>
+                      </div>
+                      <p className="mt-2 text-[11px] leading-relaxed text-muted">
+                        iCloud: 캘린더 앱 → 공유 → 공개 캘린더 → 링크의 <span className="font-mono">webcal://</span>을 <span className="font-mono">https://</span>로.
+                        <br />
+                        회사 계정은 iCal 주소가 막혀 있을 수 있어요 — 위 Google 연결을 권해요.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
-              <p className="mt-3 text-[11.5px] leading-relaxed text-muted">
-                iCloud 캘린더도 돼요: 캘린더 앱 → 공유 → 공개 캘린더 → 링크의 <span className="font-mono">webcal://</span>을{" "}
-                <span className="font-mono">https://</span>로 바꿔 붙이면 됩니다.
-              </p>
             </>
           )}
         </motion.div>
       </AnimatePresence>
 
       {/* 하단: 진행 점 + 버튼 */}
-      <div className="mt-6 flex items-center justify-between">
+      <div className="mt-4 flex flex-shrink-0 items-center justify-between px-6">
         <div className="flex items-center gap-1.5" aria-label={`${step + 1} / ${STEPS}`}>
           {Array.from({ length: STEPS }).map((_, i) => (
             <span
@@ -851,7 +910,7 @@ function Onboarding({
               onClick={onDone}
               className="cursor-pointer rounded-xl bg-foreground px-4 py-2 text-[13px] font-semibold text-background hover:opacity-85"
             >
-              {calConnected ? "완료" : "나중에 하기"}
+              {calConnected ? "시작하기" : "나중에 하기"}
             </button>
           )}
         </div>
@@ -1007,7 +1066,46 @@ export default function App() {
   const [calConfigured, setCalConfigured] = useState(true);
   const [icsInput, setIcsInput] = useState("");
 
-  const [calError, setCalError] = useState<"rate_limited" | "offline" | "error" | null>(null);
+  const [calError, setCalError] = useState<"rate_limited" | "offline" | "error" | "signed_out" | null>(null);
+  // ── Google 로그인 ──
+  const [google, setGoogle] = useState<GoogleStatus>({ signedIn: false, email: "", clientConfigured: false });
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleErr, setGoogleErr] = useState("");
+  const refreshGoogle = async () => {
+    if (!window.widget) return;
+    setGoogle(await window.widget.googleStatus());
+  };
+  const googleSignIn = async () => {
+    if (!window.widget) return;
+    setGoogleBusy(true);
+    setGoogleErr("");
+    try {
+      const r = await window.widget.googleSignIn();
+      if (!r.ok)
+        setGoogleErr(
+          r.reason === "timeout"
+            ? "시간이 지나 취소됐어요. 다시 시도해주세요"
+            : r.reason === "access_denied"
+              ? "허용이 취소됐거나 아직 승인되지 않은 계정이에요"
+              : r.reason === "no_client"
+                ? "앱 설정이 없어요 (개발자에게 문의)"
+                : "연결에 실패했어요. 다시 시도해주세요",
+        );
+      await refreshGoogle();
+      await refreshEvents();
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+  const googleSignOut = async () => {
+    await window.widget?.googleSignOut();
+    await refreshGoogle();
+    await refreshEvents();
+  };
+  useEffect(() => {
+    if (isElectron) refreshGoogle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const calFails = useRef(0);
   const refreshEvents = async () => {
     if (!window.widget) return;
@@ -1093,7 +1191,9 @@ export default function App() {
   const [showFullUrl, setShowFullUrl] = useState(false);
   const [calEditing, setCalEditing] = useState(false); // 주소 입력창 펼침
   // iCal 주소가 있거나, 로컬 동기화 파일로 일정이 들어오고 있으면 연결된 상태
-  const calConnected = !!savedIcsUrl || calConfigured;
+  // "연결됨"은 실제로 동작할 때만: 구글 로그인 상태이거나, ICS 주소로 오류 없이 일정을 받아오는 중
+  const calConnected =
+    google.signedIn || (calConfigured && !calError && (!!savedIcsUrl || events.length > 0));
 
   useEffect(() => {
     if (!settingsOpen || !window.widget) return;
@@ -1681,7 +1781,11 @@ export default function App() {
             <Onboarding
               look={look}
               onLook={setLook}
-              calConnected={calConnected && !DEV_FORCE_NEW_USER /* DEV 강제 모드에서는 항상 입력창 확인 */}
+              calConnected={calConnected}
+              googleEmail={google.email}
+              googleBusy={googleBusy}
+              googleErr={googleErr}
+              onGoogleSignIn={googleSignIn}
               onSaveIcs={async (url) => {
                 await window.widget?.calendarSetUrl(url);
                 setSavedIcsUrl(url);
@@ -1813,13 +1917,43 @@ export default function App() {
                 {/* ── 캘린더 ── */}
                 <SettingCard title="캘린더">
                   <SettingRow
-                    label="Google Calendar"
+                    label="Google 계정"
                     desc={
                       !isElectron
                         ? "앱에서만 연동할 수 있어요"
-                        : calConnected
-                          ? "오늘 일정을 Schedule에 표시 중"
-                          : "iCal 비공개 주소로 오늘 일정을 가져와요"
+                        : google.signedIn
+                          ? google.email || "연결됨 · 오늘 일정을 표시 중"
+                          : googleErr || "로그인해서 오늘 일정을 가져와요 (회사 계정 가능)"
+                    }
+                    descMono={isElectron && google.signedIn && !!google.email}
+                  >
+                    {isElectron &&
+                      (google.signedIn ? (
+                        <button
+                          onClick={googleSignOut}
+                          className="cursor-pointer rounded-lg bg-background-secondary px-3.5 py-2 text-[12px] text-danger transition-opacity hover:opacity-70"
+                        >
+                          연결 해제
+                        </button>
+                      ) : (
+                        <button
+                          onClick={googleSignIn}
+                          disabled={googleBusy}
+                          className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-2 text-[12px] font-semibold text-background transition-opacity hover:opacity-85 disabled:cursor-default disabled:opacity-50"
+                        >
+                          <GoogleG />
+                          {googleBusy ? "로그인 중…" : "연결"}
+                        </button>
+                      ))}
+                  </SettingRow>
+                  <SettingRow
+                    label="iCal 주소"
+                    desc={
+                      !isElectron
+                        ? "앱에서만 연동할 수 있어요"
+                        : savedIcsUrl
+                          ? "iCal 주소로 오늘 일정을 가져와요"
+                          : "iCloud 등 iCal 주소로도 연결할 수 있어요"
                     }
                   >
                     {isElectron && (
@@ -1828,7 +1962,7 @@ export default function App() {
                           onClick={() => setCalEditing((v) => !v)}
                           className="cursor-pointer rounded-lg bg-background-secondary px-3.5 py-2 text-[12px] text-foreground transition-opacity hover:opacity-70"
                         >
-                          {calConnected ? "변경" : "연결"}
+                          {savedIcsUrl ? "변경" : "연결"}
                         </button>
                       </div>
                     )}
@@ -1996,9 +2130,11 @@ export default function App() {
                         ? "캨린더 요청이 많아 잠시 후 다시 불러와요"
                         : calError === "offline"
                           ? "오프라인 — 연결되면 일정을 불러와요"
-                          : calError === "error"
-                            ? "일정을 불러오지 못했어요"
-                            : "No events today"}
+                          : calError === "signed_out"
+                            ? "Google 로그인이 만료됐어요 — 설정에서 다시 연결"
+                            : calError === "error"
+                              ? "일정을 불러오지 못했어요"
+                              : "No events today"}
                     </p>
                   ) : (
                     upcomingEvents.map((ev, i) => {

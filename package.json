@@ -1,7 +1,7 @@
 {
   "name": "my-day",
   "private": true,
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -93,6 +93,12 @@
         "provider": "github",
         "owner": "oiminza",
         "repo": "TO-Do-"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "electron/secrets/google-oauth.json",
+        "to": "google-oauth.json"
       }
     ]
   }

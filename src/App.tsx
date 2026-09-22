@@ -17,6 +17,7 @@ declare global {
       onPanelShown: (cb: (fromTray: boolean) => void) => () => void;
       setTrayTitle: (t: string) => void;
       ignoreMouse: (ignore: boolean) => void;
+      centerWindow: (on: boolean) => void;
       calendarEvents: () => Promise<{
         configured: boolean;
         events: CalEvent[];
@@ -109,7 +110,8 @@ const loadLook = (): Look => {
   const v = localStorage.getItem("my-day-look");
   if (v === "default" || v === "sketch") return v;
   // 예전 '완료 표시: 낙서' 설정을 쓰던 사용자는 낙서 스킨으로 이어감
-  return localStorage.getItem("my-day-strike") === "scribble" ? "sketch" : "default";
+  // 예전 '완료 표시: 직선' 설정을 쓰던 사용자만 기본 스킨 유지, 그 외 신규는 낙서가 기본
+  return localStorage.getItem("my-day-strike") === "line" ? "default" : "sketch";
 };
 const applyLook = (l: Look) =>
   document.documentElement.classList.toggle("sketch", l === "sketch");
@@ -171,6 +173,16 @@ const ONBOARDED_KEY = "my-day-onboarded";
 //  - import.meta.env.DEV 는 프로덕션 빌드에서 `false` 상수로 치환되어 이 분기와 플래그 값이 번들에서 통째로 제거된다.
 const DEV_FORCE_NEW_USER: boolean =
   import.meta.env.DEV && import.meta.env.VITE_DEV_FORCE_NEW_USER === "true";
+
+// 부수효과 없이 완료 여부만 확인 (open 초기값 계산용)
+function loadOnboardedPeek(): boolean {
+  if (DEV_FORCE_NEW_USER) return false;
+  try {
+    return localStorage.getItem(ONBOARDED_KEY) === "1" || !!localStorage.getItem("my-day-tasks");
+  } catch {
+    return false;
+  }
+}
 
 function loadOnboarded(): boolean {
   if (DEV_FORCE_NEW_USER) return false;
@@ -565,27 +577,20 @@ function Onboarding({
   const STEPS = 3;
   const next = () => setStep((v) => Math.min(STEPS - 1, v + 1));
   const back = () => setStep((v) => Math.max(0, v - 1));
+  const icsValid = /^https?:\/\//.test(ics.trim());
 
   const saveIcs = async () => {
-    const url = ics.trim();
-    if (!url.startsWith("http")) return;
+    if (!icsValid) return;
     setSaving(true);
     try {
-      await onSaveIcs(url);
+      await onSaveIcs(ics.trim());
     } finally {
       setSaving(false);
     }
   };
 
-  const bullet = (t: string) => (
-    <li key={t} className="flex items-start gap-2.5">
-      <span className="mt-[6px] h-[6px] w-[6px] flex-shrink-0 rounded-full bg-foreground" />
-      {t}
-    </li>
-  );
-
   return (
-    <div className="flex h-full flex-col px-6 pb-6 pt-8">
+    <div className="flex h-full flex-col px-6 pb-6 pt-6">
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={step}
@@ -595,33 +600,24 @@ function Onboarding({
           exit={{ opacity: 0, x: -16 }}
           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         >
+          {/* 1. 환영 — 일러스트 + 한 줄 */}
           {step === 0 && (
-            <>
-              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <polyline points="4 12 10 18 20 6" />
-                </svg>
-              </div>
+            <div className="flex flex-1 flex-col items-center justify-center text-center">
+              <img
+                src="./onboarding-notepad.png"
+                alt=""
+                aria-hidden
+                draggable={false}
+                className="mb-2 w-[200px] select-none"
+              />
               <h1 className="text-[22px] font-bold leading-snug text-foreground">
-                My Day에 오신 것을
-                <br />
-                환영해요
+                My Day에 오신 것을 환영해요
               </h1>
-              <p className="mt-3 text-[13.5px] leading-relaxed text-muted">
-                오늘 할 일과 일정을 작은 위젯 하나에서 봅니다.
-                <br />
-                모든 데이터는 이 맥 안에만 저장되고 어디에도 전송되지 않아요.
-              </p>
-              <ul className="mt-6 space-y-3 text-[13px] text-foreground">
-                {[
-                  "체크하면 낙서처럼 선이 그어집니다",
-                  "여러 개를 잡아 그룹으로 묶을 수 있어요",
-                  "Done 탭에서 최근 14일 습관을 그래프로",
-                ].map(bullet)}
-              </ul>
-            </>
+              <p className="mt-2 text-[14px] text-muted">업무 관리를 시작해볼까요?</p>
+            </div>
           )}
 
+          {/* 2. 스킨 */}
           {step === 1 && (
             <>
               <h1 className="text-[20px] font-bold leading-snug text-foreground">어떤 느낌이 좋으세요?</h1>
@@ -629,8 +625,8 @@ function Onboarding({
               <div className="mt-6 grid grid-cols-2 gap-3">
                 {(
                   [
-                    ["default", "기본", "깔끔하고 차분한"],
                     ["sketch", "낙서", "종이에 펜으로 그린"],
+                    ["default", "기본", "깔끔하고 차분한"],
                   ] as const
                 ).map(([key, label, desc]) => {
                   const on = look === key;
@@ -646,7 +642,6 @@ function Onboarding({
                           : "border-black/8 hover:bg-background-secondary dark:border-white/10"
                       }`}
                     >
-                      {/* 미니 미리보기 */}
                       <div
                         className={`w-full rounded-lg px-2.5 py-2 text-[11px] text-foreground ${
                           sk ? "border border-foreground" : "bg-surface"
@@ -681,18 +676,36 @@ function Onboarding({
             </>
           )}
 
+          {/* 3. 구글 캘린더 연동 */}
           {step === 2 && (
             <>
-              <h1 className="text-[20px] font-bold leading-snug text-foreground">캘린더를 연결할까요?</h1>
+              <h1 className="text-[20px] font-bold leading-snug text-foreground">구글 캘린더 연동</h1>
               <p className="mt-2 text-[13px] leading-relaxed text-muted">
-                구글·iCloud 캘린더의 <b className="text-foreground">비공개 iCal(ICS) 주소</b>를 붙이면 오늘 일정이 할 일 위에 보여요. 지금 건너뛰고 설정에서 나중에 해도 됩니다.
+                오늘 일정이 할 일 위에 함께 보여요. 주소는 이 맥에만 저장되고 어디에도 전송되지 않습니다.
               </p>
+
+              <ol className="mt-5 space-y-2.5 text-[12.5px] leading-relaxed text-foreground">
+                {[
+                  <>구글 캘린더(웹) 우측 상단 <b>⚙ → 설정</b></>,
+                  <>왼쪽 <b>내 캘린더</b>에서 연동할 캘린더 클릭</>,
+                  <>아래로 내려 <b>iCal 형식의 비공개 주소</b>를 복사</>,
+                  <>아래 칸에 붙여넣고 <b>연결</b></>,
+                ].map((t, i) => (
+                  <li key={i} className="flex gap-2.5">
+                    <span className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-foreground text-[10.5px] font-bold text-background">
+                      {i + 1}
+                    </span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ol>
+
               {calConnected ? (
-                <div className="mt-6 flex items-center gap-2 rounded-xl bg-background-secondary px-4 py-3 text-[13px] text-foreground">
-                  <span aria-hidden>✓</span> 연결되었어요
+                <div className="mt-5 flex items-center gap-2 rounded-xl border border-foreground px-4 py-3 text-[13px] text-foreground">
+                  <span aria-hidden>✓</span> 연결되었어요. 오늘 일정을 불러옵니다.
                 </div>
               ) : (
-                <div className="mt-6">
+                <div className="mt-5 flex items-end gap-2">
                   <input
                     value={ics}
                     onChange={(e) => setIcs(e.target.value)}
@@ -700,22 +713,21 @@ function Onboarding({
                       if (e.key === "Enter") saveIcs();
                     }}
                     placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"
-                    className="sk-underline w-full border-b border-transparent bg-transparent py-2 font-mono text-[12.5px] text-foreground outline-none placeholder:text-muted focus:border-foreground"
+                    className="sk-underline min-w-0 flex-1 border-b border-foreground bg-transparent py-2 font-mono text-[12px] text-foreground outline-none placeholder:text-muted"
                   />
                   <button
                     onClick={saveIcs}
-                    disabled={!ics.trim().startsWith("http") || saving}
-                    className="mt-3 cursor-pointer rounded-lg bg-foreground px-3.5 py-2 text-[12.5px] font-semibold text-background transition-opacity disabled:cursor-default disabled:opacity-30"
+                    disabled={!icsValid || saving}
+                    className="flex-shrink-0 cursor-pointer rounded-lg bg-foreground px-3.5 py-2 text-[12.5px] font-semibold text-background transition-opacity disabled:cursor-default disabled:opacity-30"
                   >
                     {saving ? "연결 중…" : "연결"}
                   </button>
-                  <p className="mt-4 text-[11.5px] leading-relaxed text-muted">
-                    Google: 설정 → 내 캘린더 → <i>iCal 형식의 비공개 주소</i>
-                    <br />
-                    iCloud: 캘린더 공유 → 공개 캘린더 → 링크의 webcal을 https로
-                  </p>
                 </div>
               )}
+              <p className="mt-3 text-[11.5px] leading-relaxed text-muted">
+                iCloud 캘린더도 돼요: 캘린더 앱 → 공유 → 공개 캘린더 → 링크의 <span className="font-mono">webcal://</span>을{" "}
+                <span className="font-mono">https://</span>로 바꿔 붙이면 됩니다.
+              </p>
             </>
           )}
         </motion.div>
@@ -744,14 +756,14 @@ function Onboarding({
               onClick={next}
               className="cursor-pointer rounded-xl bg-foreground px-4 py-2 text-[13px] font-semibold text-background hover:opacity-85"
             >
-              다음
+              {step === 0 ? "시작하기" : "다음"}
             </button>
           ) : (
             <button
               onClick={onDone}
               className="cursor-pointer rounded-xl bg-foreground px-4 py-2 text-[13px] font-semibold text-background hover:opacity-85"
             >
-              {calConnected ? "시작하기" : "건너뛰고 시작"}
+              {calConnected ? "완료" : "나중에 하기"}
             </button>
           )}
         </div>
@@ -898,7 +910,7 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>(load);
   const [seg, setSeg] = useState<Status>("todo");
   const [input, setInput] = useState("");
-  const [open, setOpen] = useState(!isElectron);
+  const [open, setOpen] = useState(!isElectron || DEV_FORCE_NEW_USER || !loadOnboardedPeek());
 
   // ── 구글캘린더 (ICS) ──
   const [events, setEvents] = useState<CalEvent[]>(
@@ -933,6 +945,14 @@ export default function App() {
 
   // ── 온보딩 ──
   const [onboarded, setOnboarded] = useState<boolean>(loadOnboarded);
+  const onboardedRef = useRef(onboarded);
+  onboardedRef.current = onboarded;
+  // 온보딩 중엔 창을 화면 정가운데에, 끝나면 원래 자리(우하단)로
+  useEffect(() => {
+    if (!isElectron) return;
+    window.widget?.centerWindow(!onboarded);
+    if (!onboarded) window.widget?.setMode("panel");
+  }, [onboarded]);
   const finishOnboarding = () => {
     // DEV 강제 모드에서는 실제 상태를 저장하지 않고 화면만 닫는다 (새로고침하면 다시 보임)
     if (!DEV_FORCE_NEW_USER) localStorage.setItem(ONBOARDED_KEY, "1");
@@ -1029,6 +1049,8 @@ export default function App() {
   useEffect(() => {
     if (!isElectron) return;
     return window.widget?.onBlur(() => {
+      // 온보딩 중에는 바깥을 눌러도 접히지 않음
+      if (!onboardedRef.current) return;
       // (화면에 띄우기 모드에서만 도착 — 메뉴 막대 모드는 main이 창을 숨김)
       setOpen((o) => {
         if (o) window.widget?.setMode("widget");
@@ -1512,7 +1534,7 @@ export default function App() {
             <Onboarding
               look={look}
               onLook={setLook}
-              calConnected={calConnected}
+              calConnected={calConnected && !DEV_FORCE_NEW_USER /* DEV 강제 모드에서는 항상 입력창 확인 */}
               onSaveIcs={async (url) => {
                 await window.widget?.calendarSetUrl(url);
                 setSavedIcsUrl(url);

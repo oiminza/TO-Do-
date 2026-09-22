@@ -233,6 +233,24 @@ ipcMain.on("set-mode", (_e, mode) => {
   }
 });
 
+// 온보딩: 창을 화면 정가운데로 (끝나면 우하단으로 복귀)
+ipcMain.on("center-window", (_e, on) => {
+  if (!win) return;
+  if (on) {
+    const { workArea } = screen.getPrimaryDisplay();
+    win.setBounds(
+      {
+        ...PANEL,
+        x: Math.round(workArea.x + (workArea.width - PANEL.width) / 2),
+        y: Math.round(workArea.y + (workArea.height - PANEL.height) / 2),
+      },
+      false,
+    );
+  } else {
+    win.setBounds(clamp({ ...PANEL, ...bottomRight(PANEL) }), false);
+  }
+});
+
 // 알약 상태: 투명 영역 클릭을 뒤로 통과 (forward: hover는 계속 감지)
 ipcMain.on("ignore-mouse", (_e, ignore) => {
   if (!win) return;

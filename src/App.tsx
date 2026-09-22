@@ -1576,6 +1576,7 @@ export default function App() {
           className="sk-head relative py-4 text-center text-[13px] font-medium tracking-wide text-foreground/80"
         >
           {dateLabel}
+          {onboarded && (
           <button
             onClick={(e) => {
               setSettingsOpen((v) => !v);
@@ -1594,6 +1595,7 @@ export default function App() {
           >
             <GearIcon />
           </button>
+          )}
         </motion.div>
 
         {/* 안쪽 흰 패널 — 헤더보다 한 박자 뒦게 아래에서 페이드인 */}

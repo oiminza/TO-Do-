@@ -75,6 +75,18 @@ npm run dist       # macOS .dmg / .zip 빌드 → release/
 ```
 
 - 스택: Electron · React 19 · Vite · Tailwind v4 · HeroUI · framer-motion · node-ical
+
+### 온보딩 화면 다시 보기 (개발 전용)
+이미 사용 중인 환경에서 첫 실행 온보딩을 확인하고 싶을 때:
+
+```bash
+cp .env.example .env.local
+# .env.local 에서 VITE_DEV_FORCE_NEW_USER=true 로 바꾸고
+npm run dev
+```
+
+- 저장된 할일·설정은 그대로 두고 **화면만** 신규 사용자 상태로 보여줍니다. "시작하기"를 눌러도 완료 상태를 저장하지 않아 새로고침하면 다시 보입니다.
+- `import.meta.env.DEV` 가 `false` 인 프로덕션 뱌드(`npm run build`, `npm run dist`)에서는 이 코드가 번들에서 제거되어 절대 켜지지 않습니다.
 - 데이터는 모두 로컬(`localStorage`, 앱 설정 폴더의 `config.json`)에만 저장됩니다.
 
 ## 크레딧

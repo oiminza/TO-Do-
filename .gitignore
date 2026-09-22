@@ -34,3 +34,4 @@ release/
 build/icon-src.png
 build/icon-preview.png
 build/dist.log
+!.env.example

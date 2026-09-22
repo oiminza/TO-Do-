@@ -102,6 +102,11 @@ html.sketch .sk-bold { font-weight: 700; -webkit-text-stroke: 0.35px currentColo
 /* 그림자는 넣지 않음 — 일렉트론 투명 창에서는 창 경계에 잘려 회색 덩어리로 보임. (웹에서는 기존 shadow-2xl 클래스가 담당) */
 html.sketch .sk-outer {
   background: var(--paper);
+  /* 그림자는 컨테이너 자체에 — transition 을 걸지 않아 팝업과 늘 한 덩어리로 나타난다 */
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+html.sketch .sk-pill {
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.18);
 }
 /* 수첩 페이지: 살짝 샐뻗한 잉크 테두리 + 왼쪽 스프링 코일 */
 html.sketch .sk-panel {

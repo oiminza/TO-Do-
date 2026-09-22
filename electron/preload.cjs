@@ -29,8 +29,12 @@ contextBridge.exposeInMainWorld("widget", {
   setTrayTitle: (t) => ipcRenderer.send("tray-title", t),
   ignoreMouse: (b) => ipcRenderer.send("ignore-mouse", !!b),
   centerWindow: (on) => ipcRenderer.send("center-window", !!on),
-  shadowReady: () => ipcRenderer.send("shadow-ready"),
   pillReady: () => ipcRenderer.send("pill-ready"),
+  onPillOffset: (cb) => {
+    const handler = (_e, v) => cb(v);
+    ipcRenderer.on("pill-offset", handler);
+    return () => ipcRenderer.removeListener("pill-offset", handler);
+  },
   onPanelWindowReady: (cb) => {
     const handler = () => cb();
     ipcRenderer.on("panel-window-ready", handler);

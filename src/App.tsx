@@ -21,8 +21,8 @@ declare global {
       setTrayTitle: (t: string) => void;
       ignoreMouse: (ignore: boolean) => void;
       centerWindow: (on: boolean) => void;
-      shadowReady: () => void;
       pillReady: () => void;
+      onPillOffset: (cb: (v: { left: number; top: number }) => void) => () => void;
       onPanelWindowReady: (cb: () => void) => () => void;
       pillSize: (w: number, h: number) => void;
       appVersion: () => Promise<string>;
@@ -890,7 +890,7 @@ function Onboarding({
           {Array.from({ length: STEPS }).map((_, i) => (
             <span
               key={i}
-              className={`h-[6px] rounded-full transition-all ${
+              className={`h-[6px] rounded-full transition-[width,background-color] duration-200 ${
                 i === step ? "w-4 bg-foreground" : "w-[6px] bg-foreground/25"
               }`}
             />
@@ -1713,24 +1713,28 @@ export default function App() {
 
   // 알약(미니 위젯) — hover 시에만 클릭을 받고, 나문 투명 영역은 뒤 화면으로 클릭 통과
   const [hoverPill, setHoverPill] = useState(false);
-  // 창이 알약 크기로 줄어들면 알약을 창 가운데에, 패널 크기일 땐 우하단에 그린다
-  const [smallWin, setSmallWin] = useState(() => (typeof window !== "undefined" ? window.innerWidth < 300 : false));
+  // 알약 실제 크기를 main에 알려줘 창 크기를 맞춘다 (내용에 따라 폭이 달라짐)
+  // 알약은 "최종 위치"에 절대 배치된다 — 닫힘 애니메이션이 끝난 뒤 위치를 보정하지 않기 위해
+  const [pillOffset, setPillOffset] = useState({ left: 28, top: 28 });
+  const [{ w: pillW, h: pillH }, setPillWH] = useState({ w: 180, h: 48 });
   useEffect(() => {
     if (!isElectron) return;
-    const onResize = () => setSmallWin(window.innerWidth < 300);
-    onResize();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    return window.widget?.onPillOffset(setPillOffset);
   }, []);
-  // 알약 실제 크기를 main에 알려줘 창 크기를 맞춘다 (내용에 따라 폭이 달라짐)
   const pillRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!isElectron || open) return;
     const el = pillRef.current;
     if (!el) return;
     const report = () => {
-      const r = el.getBoundingClientRect();
-      if (r.width > 0) window.widget?.pillSize(Math.ceil(r.width), Math.ceil(r.height));
+      // getBoundingClientRect 는 hover/등장 애니메이션의 scale 까지 반영해 값이 흔들린다.
+      // 레이아웃 크기(offsetWidth/Height)만 써야 창 크기가 매번 같은 값으로 잡힌다.
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      if (w > 0) {
+        setPillWH({ w, h });
+        window.widget?.pillSize(w, h);
+      }
     };
     report();
     const ro = new ResizeObserver(report);
@@ -1746,16 +1750,17 @@ export default function App() {
   const pillEl = (
     <motion.div
       key="pill"
-      className={smallWin ? "absolute inset-0 flex items-center justify-center" : "absolute bottom-5 right-2"}
-      initial={{ opacity: 0, scale: 0.85 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.85 }}
-      transition={{ type: "spring", stiffness: 520, damping: 34, mass: 0.7 }}
+      // 창 크기가 달라져도 같은 기준(오른쪽·아래 14px)에 붙는다 — 정렬 방식이 바뀌면 x 좌표가 튄다
+      className="absolute"
+      style={{ left: pillOffset.left, top: pillOffset.top }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.16, ease: "easeOut" }}
       onAnimationComplete={() => {
         // 등장/퇴장 모두 여기로 오므로, 알약이 "보이는" 상태일 때만 창 축소를 요청한다
         if (!openRef.current) window.widget?.pillReady();
       }}
-      style={{ originX: 1, originY: 1, willChange: "transform, opacity", backfaceVisibility: "hidden" }}
       onMouseEnter={() => setHoverPill(true)}
       onMouseLeave={() => setHoverPill(false)}
     >
@@ -1764,7 +1769,7 @@ export default function App() {
       <button
         ref={pillRef}
         onMouseDown={onWidgetMouseDown}
-        className="sk-pill flex cursor-grab items-center gap-2.5 rounded-full border border-black/8 bg-white py-3 pl-5 pr-5 transition-transform hover:scale-[1.03] active:cursor-grabbing dark:border-white/10 dark:bg-background-secondary/75"
+        className="sk-pill flex cursor-grab items-center gap-2.5 rounded-full border border-black/8 bg-white py-3 pl-5 pr-5 shadow-[0_5px_16px_rgba(0,0,0,0.16)] transition-transform hover:scale-[1.03] active:cursor-grabbing dark:border-white/10 dark:bg-background-secondary/75"
       >
         <span className="flex-shrink-0 whitespace-nowrap text-[13px] font-bold text-foreground">
           ☑ {todoCount}
@@ -1780,9 +1785,7 @@ export default function App() {
   const panelEl = (
     <StrikeCtx.Provider value={strike}>
       <div
-        className={`sk-outer flex h-[600px] w-[360px] flex-col overflow-hidden rounded-[28px] bg-background-secondary ${
-          isElectron ? "" : "shadow-2xl"
-        }`}
+        className="sk-outer flex h-[600px] w-[360px] flex-col overflow-hidden rounded-[28px] bg-background-secondary shadow-[0_6px_20px_rgba(0,0,0,0.18)]"
       >
         <SketchFilter />
         {/* 날짜 헤더 (드래그 핸들) — 열릴 때 살짝 아래에서 떠오름 */}
@@ -2455,13 +2458,17 @@ export default function App() {
           {open && (
             <motion.div
               key="panel"
-              className="absolute bottom-2 right-2"
-              style={{ originX: 1, originY: 1, willChange: "transform, opacity", backfaceVisibility: "hidden" }}
-              initial={{ opacity: 0, scale: 0.9, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 8 }}
-              transition={{ type: "spring", stiffness: 480, damping: 38, mass: 0.8 }}
-              onAnimationComplete={() => window.widget?.shadowReady()}
+              className="absolute inset-0 flex items-center justify-center"
+              style={{
+                willChange: "transform, opacity",
+                backfaceVisibility: "hidden",
+                // 알약이 있는 지점을 원점으로 삼아, 그 자리에서 펼쳐지고 그 자리로 접힌다
+                transformOrigin: `${pillOffset.left + pillW / 2 - 28}px ${pillOffset.top + pillH / 2 - 28}px`,
+              }}
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ type: "spring", stiffness: 440, damping: 34, mass: 0.6 }}
             >
               {panelEl}
             </motion.div>

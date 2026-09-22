@@ -139,7 +139,8 @@ ipcMain.handle("calendar-events", async () => {
 
 // 창은 항상 패널 크기의 투명 창. 알약↔패널 전환은 렌더러 안에서 애니메이션으로.
 // 알약 상태에서는 setIgnoreMouseEvents로 투명 영역 클릭을 뒤 화면으로 통과시킴.
-const PANEL = { width: 380, height: 680 };
+// 패널 본체(360x600) + 그림자가 그려질 여백(28px)
+const PANEL = { width: 416, height: 656 };
 const MARGIN = 8; // 창 자체에 이미 8px 안쪽 여백이 있어 실제 화면 여백은 16px
 
 let win = null;
@@ -156,15 +157,13 @@ function centerOf(size) {
 // 기본 자리: 센터 모드면 가운데, 사용자가 옮긴 위치가 있으면 그 자리, 없으면 우하단
 function homeBounds() {
   if (centered) return clamp({ ...PANEL, ...centerOf(PANEL) });
-  const saved = loadConfig().pillCenter;
-  if (saved && Number.isFinite(saved.cx) && Number.isFinite(saved.cy)) {
-    return clamp({
-      ...PANEL,
-      x: Math.round(saved.cx + pillSize.width / 2 + PILL_IN_PANEL.right - PANEL.width),
-      y: Math.round(saved.cy + pillSize.height / 2 + PILL_IN_PANEL.bottom - PANEL.height),
-    });
-  }
-  return clamp({ ...PANEL, ...bottomRight(PANEL) });
+  const pos = ensurePillPos();
+  const size = pillWinSize();
+  return clamp({
+    ...PANEL,
+    x: Math.round(pos.x + size.width / 2 - PANEL.width / 2),
+    y: Math.round(pos.y + size.height / 2 - PANEL.height / 2),
+  });
 }
 
 function bottomRight(size) {
@@ -178,8 +177,8 @@ function bottomRight(size) {
 // ─── 창 크기: 알약일 때는 작게, 패널일 때는 크게 ────────────────────────
 // 알약인데도 창이 패널 크기(380x680)면, 알약을 위로 끌 때 "보이지 않는 창 위쪽"이
 // 메뉴 막대에 먼저 걸려 화면 상단까지 갈 수 없다. 그래서 알약일 때는 창도 알약 크기로 줄인다.
-const PILL_PAD = 14; // 그림자가 잘리지 않도록 알약 주변 여백
-const PILL_IN_PANEL = { right: 8, bottom: 20 }; // 패널 크기 창 안에서 알약이 놓이는 위치(CSS bottom-5 right-2)
+const PILL_PAD = 28; // 그림자가 잘리지 않도록 알약 주변 여백
+// 알약·패널 모두 창 한가운데에 그려진다 (요소는 CSS 로 중앙 정렬)
 let pillSize = { width: 210, height: 52 }; // 렌더러가 실제 크기를 알려준다
 let winMode = "panel"; // 지금 창이 어느 크기인지
 let panelOpen = false; // 패널이 열려 있는 동안에는 창을 줄이면 안 된다
@@ -188,43 +187,68 @@ function pillWinSize() {
   return { width: Math.round(pillSize.width + PILL_PAD * 2), height: Math.round(pillSize.height + PILL_PAD * 2) };
 }
 
-// 알약이 화면에서 차지하는 중심 좌표 (창 크기가 달라도 이 점을 기준으로 위치를 이어받는다)
-function pillCenter() {
-  const [x, y] = win.getPosition();
-  const [w, h] = win.getSize();
-  if (winMode === "pill") return { cx: x + w / 2, cy: y + h / 2 };
+// ─── 기준 좌표(anchor) ───────────────────────────────────────────────
+// 알약 창의 좌상단 좌표. "사용자가 위젯을 놓아둔 자리"를 뜻하는 단 하나의 기준값이며
+// 창 크기(알약↔패널, 알약 폭 변화)로는 절대 바뀌지 않는다. 오직 드래그로만 갱신된다.
+let pillPos = null;
+
+function defaultPillPos() {
+  const { workArea } = screen.getPrimaryDisplay();
+  const size = pillWinSize();
   return {
-    cx: x + w - PILL_IN_PANEL.right - pillSize.width / 2,
-    cy: y + h - PILL_IN_PANEL.bottom - pillSize.height / 2,
+    x: workArea.x + workArea.width - size.width - MARGIN,
+    y: workArea.y + workArea.height - size.height - MARGIN,
   };
+}
+
+// 알약이 창 안에서 놓일 좌표(= 화면상으로는 항상 같은 자리)를 렌더러에 전달
+function sendPillOffset() {
+  if (!win || win.isDestroyed()) return;
+  const [wx, wy] = win.getPosition();
+  const pos = ensurePillPos();
+  win.webContents.send("pill-offset", { left: pos.x + PILL_PAD - wx, top: pos.y + PILL_PAD - wy });
+}
+
+function ensurePillPos() {
+  if (pillPos) return pillPos;
+  const saved = loadConfig().pillPos;
+  pillPos =
+    saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)
+      ? { x: saved.x, y: saved.y }
+      : defaultPillPos();
+  return pillPos;
 }
 
 function toPillWindow() {
   if (!win || win.isDestroyed() || placement === "menubar") return;
   if (panelOpen) return; // 패널이 떠 있는 동안 축소 금지
-  const { cx, cy } = pillCenter();
-  const size = pillWinSize();
   winMode = "pill";
-  win.setBounds(
-    clamp({ ...size, x: Math.round(cx - size.width / 2), y: Math.round(cy - size.height / 2) }),
-    false,
-  );
+  const pos = ensurePillPos();
+  const size = pillWinSize();
+  // 위치는 기준 좌표 그대로. 크기가 달라져도 x/y 를 다시 계산하지 않는다.
+  const b = clamp({ ...size, x: pos.x, y: pos.y });
+  win.setBounds(b, false);
+  // 화면 밖이라 보정된 경우에만 기준 좌표를 따라 옮긴다
+  if (b.x !== pos.x || b.y !== pos.y) pillPos = { x: b.x, y: b.y };
+  sendPillOffset();
   savePosSoon();
 }
 
 function toPanelWindow() {
   if (!win || win.isDestroyed()) return;
-  const { cx, cy } = pillCenter();
   winMode = "panel";
-  // 알약이 있던 자리에 알약이 그대로 보이도록 패널 창을 배치한다
+  // 알약이 있던 자리(기준 좌표)를 중심으로 펼친다. pillPos 는 절대 바꾸지 않는다.
+  const pos = ensurePillPos();
+  const size = pillWinSize();
   win.setBounds(
     clamp({
       ...PANEL,
-      x: Math.round(cx + pillSize.width / 2 + PILL_IN_PANEL.right - PANEL.width),
-      y: Math.round(cy + pillSize.height / 2 + PILL_IN_PANEL.bottom - PANEL.height),
+      x: Math.round(pos.x + size.width / 2 - PANEL.width / 2),
+      y: Math.round(pos.y + size.height / 2 - PANEL.height / 2),
     }),
     false,
   );
+  sendPillOffset();
 }
 
 // 렌더러가 알려주는 알약 실제 크기 (내용에 따라 폭이 달라진다)
@@ -247,11 +271,9 @@ ipcMain.on("pill-size", (_e, w, h) => {
 ipcMain.on("pill-ready", () => {
   // 패널이 열려 있는데 도착한 신호 = 알약이 "사라지는" 애니메이션이 끝난 것이므로 무시한다
   if (panelOpen) {
-    restoreShadow();
     return;
   }
   toPillWindow();
-  restoreShadow();
 });
 
 // 사용자가 옮겨둔 창 위치를 기억한다 (드래그 중엔 잦은 저장을 피해 디바운스)
@@ -260,8 +282,7 @@ function savePosSoon() {
   clearTimeout(savePosTimer);
   savePosTimer = setTimeout(() => {
     if (!win || win.isDestroyed() || placement === "menubar" || centered) return;
-    const { cx, cy } = pillCenter();
-    saveConfig({ ...loadConfig(), pillCenter: { cx: Math.round(cx), cy: Math.round(cy) } });
+    saveConfig({ ...loadConfig(), pillPos: ensurePillPos() });
   }, 400);
 }
 
@@ -292,7 +313,7 @@ function createWindow() {
     backgroundColor: "#00000000", // 리사이즈 시 투명 배경이 검게 변하는 버그 방지
     resizable: false,
     alwaysOnTop: true,
-    hasShadow: true, // 투명 창이지만 macOS가 내용(알파) 모양을 따라 그림자를 그려줌
+    hasShadow: false, // 그림자는 CSS box-shadow 로 그린다 (네이티브 그림자는 전환 중 한 박자 늦게 따라온다)
     skipTaskbar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -311,13 +332,13 @@ function createWindow() {
   //  - 메뉴 막대: 창 자체를 숨김
   win.on("blur", () => {
     if (placement === "menubar") win?.hide();
-    else {
-      win?.webContents.send("window-blur");
-      suspendShadow(); // 패널 → 알약 전환 중 그림자 일시 해제
-    }
+    else win?.webContents.send("window-blur");
   });
 
-  win.webContents.on("did-finish-load", () => applyPlacement());
+  win.webContents.on("did-finish-load", () => {
+    applyPlacement();
+    sendPillOffset();
+  });
 }
 
 // ─── 위치: 화면에 띄우기(floating) / 메뉴 막대(menubar) ───
@@ -357,7 +378,6 @@ function destroyTray() {
 
 function applyPlacement() {
   if (!win) return;
-  suspendShadow(700);
   winMode = "panel";
   if (placement === "menubar") {
     createTray();
@@ -394,35 +414,8 @@ ipcMain.on("tray-title", (_e, t) => {
 });
 
 // 모드 전환: 패널이 열릴 때 포커스만 가져옴 (바깥 클릭 시 blur로 접히기 위해)
-let shadowTimer = null;
-// 알약 ↔ 패널 전환 동안에는 그림자를 아예 끈다.
-// macOS 네이티브 그림자는 "창의 불투명한 영역 모양"을 캐싱해서 그리는데,
-// 크기가 변하는 애니메이션 중에는 이전 모양 그림자가 남아 잔상처럼 비치고 버벅인다.
-// 전환이 끝난 뒤 한 번만 다시 켜서 최종 모양으로 깔끔하게 그린다.
-function restoreShadow() {
-  if (!win || win.isDestroyed()) return;
-  clearTimeout(shadowTimer);
-  win.setHasShadow(true);
-  win.invalidateShadow?.();
-}
-
-// 렌더러(framer-motion)가 전환 애니메이션 완료를 알려주면 바로 그림자를 그린다.
-// 고정 시간을 기다리면 "한참 뒤에 그림자가 생기는" 느낌이 나므로 신호 기반으로 처리.
-ipcMain.on("shadow-ready", restoreShadow);
-
-function suspendShadow(ms = 700) {
-  if (!win || win.isDestroyed()) return;
-  win.setHasShadow(false);
-  clearTimeout(shadowTimer);
-  shadowTimer = setTimeout(() => {
-    if (!win || win.isDestroyed()) return;
-    win.setHasShadow(true);
-    win.invalidateShadow?.();
-  }, ms);
-}
 
 ipcMain.on("set-mode", (_e, mode) => {
-  suspendShadow();
   if (mode === "widget") panelOpen = false;
   if (!win || placement === "menubar") return;
   if (mode === "panel") {
@@ -472,7 +465,6 @@ ipcMain.handle("check-update", async () => {
 ipcMain.on("center-window", (_e, on) => {
   if (!win) return;
   centered = !!on;
-  suspendShadow();
   if (on) winMode = "panel";
   win.setBounds(homeBounds(), false);
 });
@@ -487,7 +479,11 @@ ipcMain.on("ignore-mouse", (_e, ignore) => {
 ipcMain.on("move-by", (_e, dx, dy) => {
   if (!win || placement === "menubar") return;
   const [x, y] = win.getPosition();
-  win.setPosition(x + Math.round(dx), y + Math.round(dy), false);
+  const mx = Math.round(dx);
+  const my = Math.round(dy);
+  win.setPosition(x + mx, y + my, false);
+  const pos = ensurePillPos();
+  pillPos = { x: pos.x + mx, y: pos.y + my }; // 기준 좌표도 같이 이동
   savePosSoon();
 });
 

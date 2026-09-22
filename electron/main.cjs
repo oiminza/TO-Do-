@@ -262,6 +262,7 @@ ipcMain.on("set-mode", (_e, mode) => {
 // 나중에 서명을 붙이면 electron-updater 로 교체하면 된다.
 const REPO = "oiminza/TO-Do-";
 ipcMain.handle("app-version", () => app.getVersion());
+ipcMain.on("quit-app", () => app.quit());
 ipcMain.handle("open-external", (_e, url) => {
   const u = String(url || "");
   if (/^https:\/\/(github\.com|calendar\.google\.com)\//.test(u)) shell.openExternal(u);

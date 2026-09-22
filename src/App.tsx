@@ -19,6 +19,7 @@ declare global {
       ignoreMouse: (ignore: boolean) => void;
       centerWindow: (on: boolean) => void;
       appVersion: () => Promise<string>;
+      quitApp: () => void;
       checkUpdate: () => Promise<UpdateInfo>;
       openExternal: (url: string) => Promise<void>;
       calendarEvents: () => Promise<{
@@ -1029,14 +1030,14 @@ export default function App() {
   useEffect(() => {
     if (!isElectron) return;
     const apply = () => {
-      window.widget?.centerWindow(!onboarded);
-      if (!onboarded) window.widget?.setMode("panel");
+      window.widget?.centerWindow(!onboarded && open);
+      if (!onboarded && open) window.widget?.setMode("panel");
     };
     apply();
     // 앱 시작 직후엔 main이 창 위치를 우하단으로 다시 잡을 수 있어 한 박자 뒤 재적용
     const t = setTimeout(apply, 400);
     return () => clearTimeout(t);
-  }, [onboarded]);
+  }, [onboarded, open]);
   const finishOnboarding = () => {
     // DEV 강제 모드에서는 실제 상태를 저장하지 않고 화면만 닫는다 (새로고침하면 다시 보임)
     if (!DEV_FORCE_NEW_USER) localStorage.setItem(ONBOARDED_KEY, "1");
@@ -1094,8 +1095,8 @@ export default function App() {
     const offP = window.widget.onPlacement((p) => {
       setPlacement(p);
       if (p === "menubar") setOpen(true); // 메뉴 막대엔 위젯 모드가 없음
-      else {
-        setOpen(false); // 화면에 띄우기로 복귀 → 작은 위젯부터
+      else if (onboardedRef.current) {
+        setOpen(false); // 화면에 띄우기로 복귀 → 작은 위젯부터 (온보딩 중에는 패널 열린 상태 유지)
         setSettingsOpen(false);
       }
     });
@@ -1147,6 +1148,7 @@ export default function App() {
   const openPanel = () => {
     setOpen(true);
     window.widget?.setMode("panel");
+    if (!onboardedRef.current) window.widget?.centerWindow(true);
     refreshEvents();
   };
 
@@ -1608,6 +1610,21 @@ export default function App() {
           className="sk-head relative py-4 text-center text-[13px] font-medium tracking-wide text-foreground/80"
         >
           {dateLabel}
+          {!onboarded && isElectron && (
+            <button
+              onClick={() => {
+                // 온보딩을 마치기 전엔 위젯이 없다 → ✕는 앱 종료. 다시 켜면 온보딩부터 (완료 상태 저장 안 됨)
+                window.widget?.quitApp();
+              }}
+              aria-label="닫기"
+              style={isElectron ? ({ WebkitAppRegion: "no-drag" } as React.CSSProperties) : undefined}
+              className="absolute right-4 top-1/2 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted outline-none transition-colors hover:text-foreground focus:outline-none"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          )}
           {onboarded && (
           <button
             onClick={(e) => {
@@ -2204,7 +2221,7 @@ export default function App() {
     return (
       <div className="relative h-screen w-screen bg-transparent font-mono">
         <AnimatePresence initial={false} mode="sync">
-          {!open && placement === "floating" && pillEl}
+          {!open && placement === "floating" && onboarded && pillEl}
           {open && (
             <motion.div
               key="panel"

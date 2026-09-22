@@ -1,14 +1,16 @@
 {
   "name": "my-day",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "app": "electron ."
+    "app": "electron .",
+    "dist": "npm run build && electron-builder --mac",
+    "dist:dir": "npm run build && electron-builder --mac --dir"
   },
   "dependencies": {
     "@heroui/react": "^3.2.4",
@@ -24,10 +26,74 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
     "oxlint": "^1.79.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.2"
   },
-  "main": "electron/main.cjs"
+  "main": "electron/main.cjs",
+  "description": "맥 벤뉴바/플로팅 투두 위젯 — 오늘 할 일과 일정을 한 눈에",
+  "author": "oiminza",
+  "license": "MIT",
+  "homepage": "https://github.com/oiminza/TO-Do-",
+  "build": {
+    "appId": "com.oiminza.myday",
+    "productName": "My Day",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "darkModeSupport": true,
+      "hardenedRuntime": false,
+      "identity": null
+    },
+    "dmg": {
+      "title": "My Day",
+      "contents": [
+        {
+          "x": 140,
+          "y": 180
+        },
+        {
+          "x": 400,
+          "y": 180,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "oiminza",
+        "repo": "TO-Do-"
+      }
+    ]
+  }
 }

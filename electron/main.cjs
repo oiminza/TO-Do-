@@ -28,12 +28,14 @@ ipcMain.handle("calendar-set-url", (_e, url) => {
 // 설정 화면에서 현재 저장된 주소 확인용
 ipcMain.handle("calendar-get-url", () => loadConfig().icsUrl || "");
 
-// Lily가 동기화해주는 로컬 일정 파일 (프로젝트 루트/calendar-today.json)
+// (개발 전용) 로컬 일정 파일 — 프로젝트 루트/calendar-today.json 이 있으면 ICS 없이도 오늘 일정을 보여준다.
+// 배포된 앱에서는 사용하지 않고(개인 파일), 설정의 ICS URL로만 동작한다.
 const localEventsPath = path.join(__dirname, "..", "calendar-today.json");
 
 ipcMain.handle("calendar-events", async () => {
   const { icsUrl } = loadConfig();
   if (!icsUrl) {
+    if (app.isPackaged) return { configured: false, events: [] };
     try {
       const raw = JSON.parse(fs.readFileSync(localEventsPath, "utf8"));
       const todayStr = new Date().toLocaleDateString("sv");
@@ -131,7 +133,12 @@ function createWindow() {
     },
   });
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  win.loadURL(process.env.VITE_DEV_SERVER_URL || "http://localhost:5173");
+  // 패키징된 앱은 번들 안의 뱌드 결과(dist)를, 개발 중에는 Vite 개발 서버를 연다
+  if (app.isPackaged) {
+    win.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+  } else {
+    win.loadURL(process.env.VITE_DEV_SERVER_URL || "http://localhost:5173");
+  }
 
   // 다른 곳 클릭(포커스 아웃)
   //  - 화면에 띄우기: 렌더러에 알려서 위젯으로 접기

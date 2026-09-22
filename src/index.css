@@ -4,6 +4,20 @@
 /* dark: 접두어가 OS 설정이 아닌 <html class="dark"> (앱 내 테마 토글)를 따르도록 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* 낙서 스킨 손글씨 폰트 — 앱에 내장 (public/fonts, OFL 라이선스) */
+@font-face {
+  font-family: "Patrick Hand";
+  src: url("/fonts/PatrickHand-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poor Story";
+  src: url("/fonts/PoorStory-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+
 body {
   font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
 }

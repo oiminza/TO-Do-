@@ -31,3 +31,6 @@ release/
 # 로컬 환경
 .env
 .env.*
+build/icon-src.png
+build/icon-preview.png
+build/dist.log

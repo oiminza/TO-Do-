@@ -25,7 +25,8 @@ declare global {
       calendarEvents: () => Promise<{
         configured: boolean;
         events: CalEvent[];
-        error?: string;
+        fetchedAt?: number | null;
+        error?: "rate_limited" | "offline" | "error";
       }>;
     };
   }
@@ -1006,18 +1007,31 @@ export default function App() {
   const [calConfigured, setCalConfigured] = useState(true);
   const [icsInput, setIcsInput] = useState("");
 
+  const [calError, setCalError] = useState<"rate_limited" | "offline" | "error" | null>(null);
+  const calFails = useRef(0);
   const refreshEvents = async () => {
     if (!window.widget) return;
     const r = await window.widget.calendarEvents();
     setCalConfigured(r.configured);
-    if (r.configured) setEvents(r.events);
+    if (r.configured) setEvents(r.events); // 실패해도 main이 캠시를 넘김
+    setCalError(r.error ?? null);
+    calFails.current = r.error ? calFails.current + 1 : 0;
   };
 
   useEffect(() => {
     if (!isElectron) return;
     refreshEvents();
-    const iv = setInterval(refreshEvents, 5 * 60 * 1000); // 5분마다 갱신
-    return () => clearInterval(iv);
+    // 5분마다 갱신. 실패가 이어지면 간격을 늘려(10→20→40분) 구글 요청 제한을 더 자극하지 않는다
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      const mins = Math.min(40, 5 * 2 ** calFails.current);
+      timer = setTimeout(async () => {
+        await refreshEvents();
+        schedule();
+      }, mins * 60 * 1000);
+    };
+    schedule();
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1978,7 +1992,13 @@ export default function App() {
                     </button>
                   ) : upcomingEvents.length === 0 ? (
                     <p className="py-[7px] pl-6 text-[12.5px] text-muted">
-                      No events today
+                      {calError === "rate_limited"
+                        ? "캨린더 요청이 많아 잠시 후 다시 불러와요"
+                        : calError === "offline"
+                          ? "오프라인 — 연결되면 일정을 불러와요"
+                          : calError === "error"
+                            ? "일정을 불러오지 못했어요"
+                            : "No events today"}
                     </p>
                   ) : (
                     upcomingEvents.map((ev, i) => {

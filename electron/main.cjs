@@ -32,6 +32,24 @@ ipcMain.handle("calendar-get-url", () => loadConfig().icsUrl || "");
 // 배포된 앱에서는 사용하지 않고(개인 파일), 설정의 ICS URL로만 동작한다.
 const localEventsPath = path.join(__dirname, "..", "calendar-today.json");
 
+// 마지막으로 성공한 오늘 일정 — 구글이 429(요청 과다)나 오프라인으로 실패해도 직전 결과를 그대로 보여준다
+const cachePath = () => path.join(app.getPath("userData"), "calendar-cache.json");
+function loadCache() {
+  try {
+    const c = JSON.parse(fs.readFileSync(cachePath(), "utf8"));
+    return c && c.date === new Date().toLocaleDateString("sv") ? c : null;
+  } catch {
+    return null;
+  }
+}
+function saveCache(events) {
+  try {
+    fs.writeFileSync(cachePath(), JSON.stringify({ date: new Date().toLocaleDateString("sv"), fetchedAt: Date.now(), events }));
+  } catch {
+    /* ignore */
+  }
+}
+
 ipcMain.handle("calendar-events", async () => {
   const { icsUrl } = loadConfig();
   if (!icsUrl) {
@@ -78,9 +96,18 @@ ipcMain.handle("calendar-events", async () => {
       }
     }
     events.sort((a, b) => a.start.localeCompare(b.start));
-    return { configured: true, events };
+    saveCache(events);
+    return { configured: true, events, fetchedAt: Date.now() };
   } catch (e) {
-    return { configured: true, events: [], error: String(e) };
+    const msg = String(e?.message || e);
+    const reason = /429/.test(msg) ? "rate_limited" : /ENOTFOUND|ECONN|fetch failed|network/i.test(msg) ? "offline" : "error";
+    const cached = loadCache();
+    return {
+      configured: true,
+      events: cached ? cached.events : [],
+      fetchedAt: cached ? cached.fetchedAt : null,
+      error: reason,
+    };
   }
 });
 

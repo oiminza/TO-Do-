@@ -299,7 +299,18 @@ let shadowTimer = null;
 // macOS 네이티브 그림자는 "창의 불투명한 영역 모양"을 캐싱해서 그리는데,
 // 크기가 변하는 애니메이션 중에는 이전 모양 그림자가 남아 잔상처럼 비치고 버벅인다.
 // 전환이 끝난 뒤 한 번만 다시 켜서 최종 모양으로 깔끔하게 그린다.
-function suspendShadow(ms = 420) {
+function restoreShadow() {
+  if (!win || win.isDestroyed()) return;
+  clearTimeout(shadowTimer);
+  win.setHasShadow(true);
+  win.invalidateShadow?.();
+}
+
+// 렌더러(framer-motion)가 전환 애니메이션 완료를 알려주면 바로 그림자를 그린다.
+// 고정 시간을 기다리면 "한참 뒤에 그림자가 생기는" 느낌이 나므로 신호 기반으로 처리.
+ipcMain.on("shadow-ready", restoreShadow);
+
+function suspendShadow(ms = 700) {
   if (!win || win.isDestroyed()) return;
   win.setHasShadow(false);
   clearTimeout(shadowTimer);

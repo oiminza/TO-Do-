@@ -21,6 +21,7 @@ declare global {
       setTrayTitle: (t: string) => void;
       ignoreMouse: (ignore: boolean) => void;
       centerWindow: (on: boolean) => void;
+      shadowReady: () => void;
       appVersion: () => Promise<string>;
       quitApp: () => void;
       checkUpdate: () => Promise<UpdateInfo>;
@@ -1691,6 +1692,7 @@ export default function App() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.85 }}
       transition={{ type: "spring", stiffness: 520, damping: 34, mass: 0.7 }}
+      onAnimationComplete={() => window.widget?.shadowReady()}
       style={{ originX: 1, originY: 1, willChange: "transform, opacity", backfaceVisibility: "hidden" }}
       onMouseEnter={() => setHoverPill(true)}
       onMouseLeave={() => setHoverPill(false)}
@@ -2396,6 +2398,7 @@ export default function App() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 8 }}
               transition={{ type: "spring", stiffness: 480, damping: 38, mass: 0.8 }}
+              onAnimationComplete={() => window.widget?.shadowReady()}
             >
               {panelEl}
             </motion.div>

@@ -26,5 +26,8 @@ contextBridge.exposeInMainWorld("widget", {
   setTrayTitle: (t) => ipcRenderer.send("tray-title", t),
   ignoreMouse: (b) => ipcRenderer.send("ignore-mouse", !!b),
   centerWindow: (on) => ipcRenderer.send("center-window", !!on),
+  appVersion: () => ipcRenderer.invoke("app-version"),
+  checkUpdate: () => ipcRenderer.invoke("check-update"),
+  openExternal: (url) => ipcRenderer.invoke("open-external", url),
   calendarEvents: () => ipcRenderer.invoke("calendar-events"),
 });

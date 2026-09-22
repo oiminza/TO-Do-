@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const nodeIcal = require("node-ical");
@@ -254,6 +254,35 @@ ipcMain.on("set-mode", (_e, mode) => {
     win.show();
     win.focus();
     app.focus({ steal: true });
+  }
+});
+
+// ─── 정보 / 업데이트 확인 ───────────────────────────────────
+// 자동 설치는 Apple 서명이 필요해서(서명 없는 앱은 macOS가 자기 교체를 막음) 지금은 "새 버전 알림 + 다운로드 링크"만 제공.
+// 나중에 서명을 붙이면 electron-updater 로 교체하면 된다.
+const REPO = "oiminza/TO-Do-";
+ipcMain.handle("app-version", () => app.getVersion());
+ipcMain.handle("open-external", (_e, url) => {
+  const u = String(url || "");
+  if (/^https:\/\/(github\.com|calendar\.google\.com)\//.test(u)) shell.openExternal(u);
+});
+ipcMain.handle("check-update", async () => {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+      headers: { Accept: "application/vnd.github+json", "User-Agent": "my-day" },
+    });
+    if (!res.ok) return { ok: false, reason: res.status === 404 || res.status === 403 ? "private" : `http ${res.status}` };
+    const j = await res.json();
+    const latest = String(j.tag_name || "").replace(/^v/, "");
+    const current = app.getVersion();
+    const newer = (a, b) => {
+      const pa = a.split(".").map(Number), pb = b.split(".").map(Number);
+      for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+      return false;
+    };
+    return { ok: true, latest, current, hasUpdate: newer(latest, current), url: j.html_url };
+  } catch (e) {
+    return { ok: false, reason: "offline" };
   }
 });
 

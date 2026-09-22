@@ -18,6 +18,9 @@ declare global {
       setTrayTitle: (t: string) => void;
       ignoreMouse: (ignore: boolean) => void;
       centerWindow: (on: boolean) => void;
+      appVersion: () => Promise<string>;
+      checkUpdate: () => Promise<UpdateInfo>;
+      openExternal: (url: string) => Promise<void>;
       calendarEvents: () => Promise<{
         configured: boolean;
         events: CalEvent[];
@@ -106,6 +109,14 @@ const StrikeCtx = createContext<StrikeStyle>("line");
 // ─── 스킨 (기본 / 낙서) ───────────────────────────────
 // 낙서: 종이 배경 + 손글씨 + 샐뻗한 테두리/선 + 노란 형광펜 탭. <html class="sketch">로 켜짐
 type Look = "default" | "sketch";
+
+// ─── 정보 / 업데이트 ────────────────────────────────────────────────
+const REPO_URL = "https://github.com/oiminza/TO-Do-";
+type UpdateInfo =
+  | { ok: true; latest: string; current: string; hasUpdate: boolean; url: string }
+  | { ok: false; reason: string };
+// 브라우저 미리보기용 버전 (Electron에서는 main 프로세스의 app.getVersion() 사용)
+const WEB_VERSION = "dev";
 const loadLook = (): Look => {
   const v = localStorage.getItem("my-day-look");
   if (v === "default" || v === "sketch") return v;
@@ -1032,6 +1043,27 @@ export default function App() {
     setOnboarded(true);
   };
 
+  // ── 정보 / 업데이트 확인 ──
+  const [appVersion, setAppVersion] = useState<string>(WEB_VERSION);
+  const [updInfo, setUpdInfo] = useState<UpdateInfo | null>(null);
+  const [checking, setChecking] = useState(false);
+  const checkUpdate = async () => {
+    if (!window.widget) return;
+    setChecking(true);
+    try {
+      setUpdInfo(await window.widget.checkUpdate());
+    } finally {
+      setChecking(false);
+    }
+  };
+  useEffect(() => {
+    if (!isElectron) return;
+    window.widget?.appVersion().then(setAppVersion);
+    // 켤 때 1회 조용히 확인
+    checkUpdate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── 설정 화면 ──
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [savedIcsUrl, setSavedIcsUrl] = useState("");
@@ -1849,6 +1881,54 @@ export default function App() {
                       className="cursor-pointer rounded-lg bg-background-secondary px-3.5 py-2 text-[12px] text-danger transition-opacity hover:opacity-70 disabled:cursor-default disabled:opacity-30"
                     >
                       지우기
+                    </button>
+                  </SettingRow>
+                </SettingCard>
+
+                {/* ── 정보 ── */}
+                <SettingCard title="정보">
+                  <SettingRow
+                    label={`My Day v${appVersion}`}
+                    desc={
+                      !isElectron
+                        ? "브라우저 미리보기"
+                        : checking
+                          ? "업데이트 확인 중…"
+                          : updInfo == null
+                            ? "업데이트 확인 전"
+                            : !updInfo.ok
+                              ? updInfo.reason === "offline"
+                                ? "오프라인이라 확인할 수 없어요"
+                                : "업데이트 정보를 가져올 수 없어요"
+                              : updInfo.hasUpdate
+                                ? `새 버전 v${updInfo.latest}이 있어요`
+                                : "최신 버전이에요"
+                    }
+                  >
+                    {isElectron &&
+                      (updInfo?.ok && updInfo.hasUpdate ? (
+                        <button
+                          onClick={() => window.widget?.openExternal(updInfo.url)}
+                          className="cursor-pointer rounded-lg bg-foreground px-3.5 py-2 text-[12px] font-semibold text-background transition-opacity hover:opacity-85"
+                        >
+                          다운로드
+                        </button>
+                      ) : (
+                        <button
+                          onClick={checkUpdate}
+                          disabled={checking}
+                          className="cursor-pointer rounded-lg bg-background-secondary px-3.5 py-2 text-[12px] text-foreground transition-opacity hover:opacity-70 disabled:cursor-default disabled:opacity-40"
+                        >
+                          확인
+                        </button>
+                      ))}
+                  </SettingRow>
+                  <SettingRow label="GitHub" desc="소스 코드 · 버그 제보 · 릴리즈 노트">
+                    <button
+                      onClick={() => (isElectron ? window.widget?.openExternal(REPO_URL) : window.open(REPO_URL))}
+                      className="cursor-pointer rounded-lg bg-background-secondary px-3.5 py-2 text-[12px] text-foreground transition-opacity hover:opacity-70"
+                    >
+                      열기
                     </button>
                   </SettingRow>
                 </SettingCard>

@@ -214,7 +214,7 @@ function createWindow() {
     if (placement === "menubar") win?.hide();
     else {
       win?.webContents.send("window-blur");
-      refreshShadow(); // 패널 → 알약으로 접힐 때도 그림자 갱신
+      suspendShadow(); // 패널 → 알약 전환 중 그림자 일시 해제
     }
   });
 
@@ -258,6 +258,7 @@ function destroyTray() {
 
 function applyPlacement() {
   if (!win) return;
+  suspendShadow(700);
   if (placement === "menubar") {
     createTray();
     win.hide();
@@ -293,14 +294,24 @@ ipcMain.on("tray-title", (_e, t) => {
 });
 
 // 모드 전환: 패널이 열릴 때 포커스만 가져옴 (바깥 클릭 시 blur로 접히기 위해)
-function refreshShadow() {
-  // 알약 ↔ 패널 전환 애니메이션(≈300ms) 끝난 뒤 그림자를 새 모양에 맞게 다시 그린다
-  setTimeout(() => win?.invalidateShadow?.(), 420);
-  setTimeout(() => win?.invalidateShadow?.(), 900);
+let shadowTimer = null;
+// 알약 ↔ 패널 전환 동안에는 그림자를 아예 끈다.
+// macOS 네이티브 그림자는 "창의 불투명한 영역 모양"을 캐싱해서 그리는데,
+// 크기가 변하는 애니메이션 중에는 이전 모양 그림자가 남아 잔상처럼 비치고 버벅인다.
+// 전환이 끝난 뒤 한 번만 다시 켜서 최종 모양으로 깔끔하게 그린다.
+function suspendShadow(ms = 420) {
+  if (!win || win.isDestroyed()) return;
+  win.setHasShadow(false);
+  clearTimeout(shadowTimer);
+  shadowTimer = setTimeout(() => {
+    if (!win || win.isDestroyed()) return;
+    win.setHasShadow(true);
+    win.invalidateShadow?.();
+  }, ms);
 }
 
 ipcMain.on("set-mode", (_e, mode) => {
-  refreshShadow();
+  suspendShadow();
   if (!win || placement === "menubar") return;
   if (mode === "panel") {
     win.setIgnoreMouseEvents(false);
@@ -344,7 +355,7 @@ ipcMain.handle("check-update", async () => {
 ipcMain.on("center-window", (_e, on) => {
   if (!win) return;
   centered = !!on;
-  refreshShadow();
+  suspendShadow();
   win.setBounds(homeBounds(), false);
 });
 

@@ -187,10 +187,15 @@ const DEV_FORCE_NEW_USER: boolean =
   import.meta.env.DEV && import.meta.env.VITE_DEV_FORCE_NEW_USER === "true";
 
 // 부수효과 없이 완료 여부만 확인 (open 초기값 계산용)
+// 온보딩이 없던 예전 버전(v0.1.0 이전 개발버전)을 이미 쓰던 사용자인가.
+// 예전 버전은 "완료 표시" 설정(my-day-strike)을 저장했고, 이 키는 지금 버전에서 더 이상 쓰지 않으므로 신뢰할 수 있는 흔적.
+// (할일 데이터 존재 여부는 처음 켜도 샘플이 저장되므로 기준이 될 수 없다)
+const isLegacyUser = () => !!localStorage.getItem("my-day-strike");
+
 function loadOnboardedPeek(): boolean {
   if (DEV_FORCE_NEW_USER) return false;
   try {
-    return localStorage.getItem(ONBOARDED_KEY) === "1" || !!localStorage.getItem("my-day-tasks");
+    return localStorage.getItem(ONBOARDED_KEY) === "1" || isLegacyUser();
   } catch {
     return false;
   }
@@ -200,8 +205,8 @@ function loadOnboarded(): boolean {
   if (DEV_FORCE_NEW_USER) return false;
   try {
     if (localStorage.getItem(ONBOARDED_KEY) === "1") return true;
-    // 온보딩이 없던 버전에서 쓰던 사용자(할일 데이터가 이미 있음)는 자동 완료 처리
-    if (localStorage.getItem("my-day-tasks")) {
+    // 온보딩이 없던 예전 버전을 쓰던 사용자는 자동 완료 처리 (업데이트 후 갑자기 온보딩이 뜨지 않게)
+    if (isLegacyUser()) {
       localStorage.setItem(ONBOARDED_KEY, "1");
       return true;
     }
@@ -1190,8 +1195,9 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (!onboarded) return; // 온보딩 전엔 저장 안 함
     localStorage.setItem("my-day-tasks", JSON.stringify(tasks));
-  }, [tasks]);
+  }, [tasks, onboarded]);
 
   const byStatus = useMemo(
     () => ({

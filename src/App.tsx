@@ -604,11 +604,11 @@ function Onboarding({
           {step === 0 && (
             <div className="flex flex-1 flex-col items-center justify-center text-center">
               <img
-                src="./onboarding-notepad.png"
+                src="./onboarding-hero.png"
                 alt=""
                 aria-hidden
                 draggable={false}
-                className="mb-2 w-[200px] select-none"
+                className="mb-3 w-[220px] select-none"
               />
               <h1 className="text-[22px] font-bold leading-snug text-foreground">
                 My Day에 오신 것을 환영해요

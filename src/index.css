@@ -654,7 +654,7 @@ html.win95 .sk-addrow {
   box-shadow: var(--bevel-field);
   padding: 2px !important;
   margin: 0 !important;
-  height: 24px;
+  height: 28px;
   align-items: stretch !important;
 }
 html.win95 .sk-addrow > input,
@@ -669,7 +669,7 @@ html.win95 .w95-send {
   display: flex !important;
   align-items: center;
   justify-content: center;
-  width: 17px;
+  width: 20px;
   height: 100%;           /* 필드 안쪽 높이에 꽉 */
   flex: 0 0 auto;
   background: var(--w-face);

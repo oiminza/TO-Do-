@@ -2373,7 +2373,7 @@ export default function App() {
                   {/* 할일이 하나도 없을 때 — Schedule의 "No events today"와 같은 톤 */}
                   {ungrouped.length === 0 && activeGroups.length === 0 && (
                     <p className="py-[7px] pl-6 text-[12.5px] text-muted">
-                      No tasks yet
+                      Nothing to do
                     </p>
                   )}
                   {ungrouped.map((t) => (

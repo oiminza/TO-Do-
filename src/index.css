@@ -642,6 +642,42 @@ html.win95 input {
   background-image: none !important;
 }
 
+/* 할일 추가 줄: 흰 필드 안 오른쏙에 콤보박스식 회색 버튼 */
+html.win95 .sk-addrow {
+  background: #fff;
+  box-shadow: var(--bevel-field);
+  padding: 2px 2px 2px 0 !important;
+  margin-top: 6px !important;
+  gap: 0;
+}
+html.win95 .sk-addrow > input,
+html.win95 .sk-addrow > input:focus {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  padding: 3px 4px !important;
+}
+html.win95 .w95-send {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  background: var(--w-face);
+  color: #000;
+  box-shadow: var(--bevel-out);
+  cursor: pointer;
+}
+html.win95 .w95-send:active { box-shadow: var(--bevel-in); }
+html.win95 .w95-send:active svg { transform: translate(1px, 1px); }
+html.win95 .w95-send:disabled {
+  cursor: default;
+  color: var(--w-shadow);
+  text-shadow: 1px 1px 0 var(--w-light); /* Win95 비활성 새김 글자 */
+}
+html.win95 .w95-send:disabled svg { filter: drop-shadow(1px 1px 0 var(--w-light)); }
+
 /* 스크롤바: 클래식 (트랙 체크무늬, 베벨 썸) */
 html.win95 .sk-scroll::-webkit-scrollbar { width: 16px; }
 html.win95 .sk-scroll::-webkit-scrollbar-track {

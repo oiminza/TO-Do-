@@ -2337,7 +2337,7 @@ export default function App() {
                     </Group>
                   ))}
 
-                  <div className="mt-1 pl-6">
+                  <div className="sk-addrow mt-1 flex items-center pl-6">
                     <input
                       placeholder="+ Add task"
                       value={input}
@@ -2347,8 +2347,22 @@ export default function App() {
                         if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                         if (e.key === "Enter") addTask();
                       }}
-                      className="sk-underline w-full rounded-none border-0 border-b border-transparent bg-transparent py-2 font-mono text-[13.5px] text-foreground outline-none transition-colors placeholder:text-muted focus:border-foreground"
+                      className="sk-underline w-full min-w-0 flex-1 rounded-none border-0 border-b border-transparent bg-transparent py-2 font-mono text-[13.5px] text-foreground outline-none transition-colors placeholder:text-muted focus:border-foreground"
                     />
+                    {/* Win95 스킨 전용 보내기 버튼 — 콤보박스 화살표 자리. 다른 스킨은 CSS로 숨김 */}
+                    <button
+                      type="button"
+                      aria-label="추가"
+                      tabIndex={-1}
+                      onMouseDown={(e) => e.preventDefault()} // 입력 포커스 유지
+                      onClick={addTask}
+                      disabled={!input.trim()}
+                      className="w95-send hidden"
+                    >
+                      <svg width="7" height="7" viewBox="0 0 7 7" aria-hidden shapeRendering="crispEdges">
+                        <polygon points="0,0 7,3.5 0,7" fill="currentColor" />
+                      </svg>
+                    </button>
                   </div>
                 </Section>
               </>

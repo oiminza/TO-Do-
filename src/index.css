@@ -24,6 +24,12 @@
   font-display: block;
 }
 @font-face {
+  font-family: "NeoDunggeunmo";
+  src: url("/fonts/NeoDunggeunmo.ttf") format("truetype");
+  font-weight: 400;
+  font-display: block;
+}
+@font-face {
   font-family: "Poor Story";
   src: url("/fonts/PoorStory-Regular.ttf") format("truetype");
   font-weight: 400;
@@ -412,22 +418,18 @@ html.win95.dark {
 /* 픽셀 폰트: 안티에일리어싱 끄고 정수 px 크기로 */
 html.win95 body,
 html.win95 .font-mono {
-  font-family: "Galmuri11", "Pretendard Variable", sans-serif;
+  font-family: "NeoDunggeunmo", "Galmuri11", "Pretendard Variable", sans-serif;
   -webkit-font-smoothing: none;
   letter-spacing: 0;
   font-weight: 400;
 }
 html.win95 .sk-outer { font-size-adjust: none; }
-/* '미디엄' 굵기: Galmuri에 중간 웨이트가 없어서 Regular + 0.5px 그림자로 한 픽셀만 두껍게 */
-html.win95 .sk-outer *, html.win95 .sk-pill * {
-  font-weight: 400 !important;
-  text-shadow: 0.5px 0 0 currentColor;
-}
-html.win95 .sk-outer svg, html.win95 .sk-outer svg * { text-shadow: none; }
-/* 탭 글자: 미디엄과 볼드 사이 — 가로·세로 0.5px 그림자로 반 단계 더 두껍게 */
-html.win95 [data-slot="tabs-tab"] {
-  text-shadow: 0.5px 0 0 currentColor, 0 0.5px 0 currentColor, 0.5px 0.5px 0 currentColor;
-}
+/* 네오둥근모는 획이 2px라 그림자 보정 없이 충분히 굵다 */
+html.win95 .sk-outer *, html.win95 .sk-pill * { font-weight: 400 !important; text-shadow: none; }
+/* 16px 격자 폰트 → 크기를 격자에 맞춰 스냅 (13.5/13 → 16, 11 → 12) */
+html.win95 .sk-outer .text-\[13\.5px\], html.win95 .sk-outer .text-\[13px\] { font-size: 16px !important; }
+html.win95 .sk-outer .text-\[11px\] { font-size: 12px !important; }
+html.win95 .sk-outer input { font-size: 16px !important; }
 
 /* ── 바깥 창: 각진 회색 창 + 베벨 ── */
 html.win95 .sk-outer {
@@ -443,7 +445,7 @@ html.win95 .sk-head {
   background: var(--w-title-a);
   color: #fff !important;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 14px;
   text-align: left !important;
   letter-spacing: 0;
 }
@@ -558,7 +560,7 @@ html.win95 [data-slot="tabs-tab"] {
   height: 21px !important;
   padding: 0 8px 1px !important;
   margin: 0 -1px 2px 0; /* 아래 2px는 페이지 윗선 자리, 오른쪽 -1px는 이웃 테두리 겹침 */
-  font-size: 12px;
+  font-size: 14px;
   overflow: visible !important;
   transition: none !important;
   position: relative;
@@ -713,7 +715,7 @@ html.win95 .sk-scroll::-webkit-scrollbar-button:single-button {
 /* 그래프: 계단식 픽셀 선 */
 html.win95 .sk-line { filter: none; stroke-width: 2; shape-rendering: crispEdges; }
 html.win95 .sk-area { fill: var(--w-select) !important; fill-opacity: 0.15; filter: none; }
-html.win95 .sk-box svg text { font-family: "Galmuri11", sans-serif; font-size: 11px; }
+html.win95 .sk-box svg text { font-family: "NeoDunggeunmo", sans-serif; font-size: 12px; }
 html.win95 .sk-box svg line { stroke-dasharray: 1 2; }
 
 /* 알약: 작은 회색 창 조각 (Start 버튼 느낌) */
@@ -723,7 +725,7 @@ html.win95 .sk-pill {
   background: var(--w-face) !important;
   color: #000 !important;
   box-shadow: var(--bevel-out), 3px 3px 0 rgba(0, 0, 0, 0.35) !important;
-  font-family: "Galmuri11", sans-serif;
+  font-family: "NeoDunggeunmo", sans-serif;
   padding: 6px 12px !important;
 }
 html.win95 .sk-pill:active { box-shadow: var(--bevel-in) !important; }

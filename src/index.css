@@ -18,6 +18,12 @@
   font-display: swap;
 }
 @font-face {
+  font-family: "Galmuri11";
+  src: url("/fonts/Galmuri11-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: block;
+}
+@font-face {
   font-family: "Poor Story";
   src: url("/fonts/PoorStory-Regular.ttf") format("truetype");
   font-weight: 400;
@@ -409,9 +415,11 @@ html.win95 .font-mono {
   font-family: "Galmuri11", "Pretendard Variable", sans-serif;
   -webkit-font-smoothing: none;
   letter-spacing: 0;
+  font-weight: 700; /* Win95 시스템 폰트(MS Sans Serif Bold) 느낌 — 기본 굵게 */
 }
 html.win95 .sk-outer { font-size-adjust: none; }
-html.win95 .font-bold, html.win95 .font-semibold, html.win95 b { font-weight: 700; }
+html.win95 .sk-outer *, html.win95 .sk-pill * { font-weight: 700 !important; }
+html.win95 .font-normal, html.win95 .font-light, html.win95 .text-muted { font-weight: 700 !important; }
 
 /* ── 바깥 창: 각진 회색 창 + 베벨 ── */
 html.win95 .sk-outer {
@@ -532,7 +540,7 @@ html.win95 [data-slot="tabs-tab"] {
   padding: 0 8px 1px !important;
   margin: 0 -1px 2px 0; /* 아래 2px는 페이지 윗선 자리, 오른쪽 -1px는 이웃 테두리 겹침 */
   font-size: 12px;
-  font-weight: 400;
+  font-weight: 700;
   overflow: visible !important;
   transition: none !important;
   position: relative;

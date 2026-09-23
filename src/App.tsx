@@ -2370,6 +2370,12 @@ export default function App() {
                 </Section>
 
                 <Section title="Tasks" onDrop={() => dropIntoGroup(undefined)}>
+                  {/* 할일이 하나도 없을 때 — Schedule의 "No events today"와 같은 톤 */}
+                  {ungrouped.length === 0 && activeGroups.length === 0 && (
+                    <p className="py-[7px] pl-6 text-[12.5px] text-muted">
+                      No tasks yet
+                    </p>
+                  )}
                   {ungrouped.map((t) => (
                     <div key={t.id}>
                       <TaskRow {...rowProps(t)} />

@@ -19,7 +19,8 @@ function saveConfig(c) {
 
 ipcMain.handle("calendar-set-url", (_e, url) => {
   const next = { ...loadConfig() };
-  const v = String(url ?? "").trim();
+  // iCloud 공유 링크는 webcal:// 로 복사되므로 https:// 로 바꿔 저장
+  const v = String(url ?? "").trim().replace(/^webcal:\/\//i, "https://");
   if (v) next.icsUrl = v;
   else delete next.icsUrl; // 빈 값 → 연동 해제
   saveConfig(next);
@@ -56,85 +57,110 @@ function saveCache(events) {
   }
 }
 
-ipcMain.handle("calendar-events", async () => {
-  const { icsUrl } = loadConfig();
-
-  // 1) Google 로그인 상태면 Calendar API 로 (Workspace 계정도 동작)
-  if (gauth.status().signedIn) {
-    try {
-      const r = await gauth.fetchTodayEvents();
-      if (r.ok) {
-        saveCache(r.events);
-        return { configured: true, source: "google", events: r.events, fetchedAt: Date.now() };
-      }
-      if (r.reason === "not_signed_in") return { configured: !!icsUrl, source: "google", events: [], error: "signed_out" };
-      const cached = loadCache();
-      return { configured: true, source: "google", events: cached ? cached.events : [], error: /429/.test(r.reason) ? "rate_limited" : "error" };
-    } catch (e) {
-      const cached = loadCache();
-      const msg = String(e?.message || e);
-      return { configured: true, source: "google", events: cached ? cached.events : [], error: /ENOTFOUND|ECONN|fetch failed/i.test(msg) ? "offline" : "error" };
+// ICS 주소(iCloud 공개 주소 / Google iCal 주소 등)에서 오늘 일정
+async function fetchIcsToday(icsUrl) {
+  const data = await nodeIcal.async.fromURL(icsUrl);
+  const now = new Date();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayEnd = new Date(dayStart.getTime() + 86400000);
+  const hm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const events = [];
+  for (const k in data) {
+    const ev = data[k];
+    if (ev.type !== "VEVENT") continue;
+    const dur = (ev.end?.getTime() || 0) - (ev.start?.getTime() || 0);
+    if (dur >= 86400000) continue; // 종일 이벤트는 제외
+    const push = (st) => {
+      const en = new Date(st.getTime() + dur);
+      events.push({ name: ev.summary || "(제목 없음)", start: hm(st), end: hm(en) });
+    };
+    if (ev.rrule) {
+      const exdates = ev.exdate ? Object.values(ev.exdate).map((d) => new Date(d).getTime()) : [];
+      ev.rrule
+        .between(dayStart, dayEnd, true)
+        .filter((d0) => !exdates.some((x) => Math.abs(x - d0.getTime()) < 1000))
+        .forEach(push);
+    } else if (ev.start >= dayStart && ev.start < dayEnd) {
+      push(ev.start);
     }
   }
+  return events;
+}
 
-  // 2) ICS 주소 (개인 Gmail / iCloud 등)
-  if (!icsUrl) {
+const classifyError = (msg) =>
+  /429/.test(msg) ? "rate_limited" : /ENOTFOUND|ECONN|fetch failed|network/i.test(msg) ? "offline" : "error";
+
+// 오늘 일정 = Google 계정(로그인) + ICS 주소 두 소스를 합친다.
+// 한쪽이 실패해도 다른 쪽 일정은 보여주고, 둘 다 실패하면 마지막 성공 캐시를 유지한다.
+ipcMain.handle("calendar-events", async () => {
+  const { icsUrl } = loadConfig();
+  const signedIn = gauth.status().signedIn;
+
+  if (!signedIn && !icsUrl) {
+    // (개발 전용) 로컬 동기화 파일
     if (app.isPackaged) return { configured: false, events: [] };
     try {
       const raw = JSON.parse(fs.readFileSync(localEventsPath, "utf8"));
       const todayStr = new Date().toLocaleDateString("sv");
-      return {
-        configured: true,
-        events: raw.date === todayStr ? raw.events : [],
-      };
+      return { configured: true, source: "local", events: raw.date === todayStr ? raw.events : [] };
     } catch {
       return { configured: false, events: [] };
     }
   }
-  try {
-    const data = await nodeIcal.async.fromURL(icsUrl);
-    const now = new Date();
-    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dayEnd = new Date(dayStart.getTime() + 86400000);
-    const hm = (d) =>
-      `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-    const events = [];
-    for (const k in data) {
-      const ev = data[k];
-      if (ev.type !== "VEVENT") continue;
-      const dur = (ev.end?.getTime() || 0) - (ev.start?.getTime() || 0);
-      if (dur >= 86400000) continue; // 종일 이벤트는 일단 제외
-      const push = (s) => {
-        const e2 = new Date(s.getTime() + dur);
-        events.push({ name: ev.summary || "(제목 없음)", start: hm(s), end: hm(e2) });
-      };
-      if (ev.rrule) {
-        // 반복 일정: 오늘 발생분만 확장
-        const exdates = ev.exdate
-          ? Object.values(ev.exdate).map((d) => new Date(d).getTime())
-          : [];
-        ev.rrule
-          .between(dayStart, dayEnd, true)
-          .filter((d0) => !exdates.some((x) => Math.abs(x - d0.getTime()) < 1000))
-          .forEach(push);
-      } else if (ev.start >= dayStart && ev.start < dayEnd) {
-        push(ev.start);
+
+  const events = [];
+  const okSources = [];
+  const errors = [];
+
+  if (signedIn) {
+    try {
+      const r = await gauth.fetchTodayEvents();
+      if (r.ok) {
+        events.push(...r.events);
+        okSources.push("google");
+      } else {
+        errors.push(r.reason === "not_signed_in" ? "signed_out" : classifyError(r.reason));
       }
+    } catch (e) {
+      errors.push(classifyError(String(e?.message || e)));
     }
-    events.sort((a, b) => a.start.localeCompare(b.start));
-    saveCache(events);
-    return { configured: true, events, fetchedAt: Date.now() };
-  } catch (e) {
-    const msg = String(e?.message || e);
-    const reason = /429/.test(msg) ? "rate_limited" : /ENOTFOUND|ECONN|fetch failed|network/i.test(msg) ? "offline" : "error";
-    const cached = loadCache();
-    return {
-      configured: true,
-      events: cached ? cached.events : [],
-      fetchedAt: cached ? cached.fetchedAt : null,
-      error: reason,
-    };
   }
+
+  if (icsUrl) {
+    try {
+      events.push(...(await fetchIcsToday(icsUrl)));
+      okSources.push("ics");
+    } catch (e) {
+      errors.push(classifyError(String(e?.message || e)));
+    }
+  }
+
+  if (okSources.length > 0) {
+    // 같은 일정이 양쪽에 다 있으면(예: 구글 캘린더를 ICS 로도 넣은 경우) 하나만
+    const seen = new Set();
+    const merged = events
+      .filter((ev) => {
+        const key = `${ev.start}|${ev.end}|${ev.name.trim().toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => a.start.localeCompare(b.start));
+    saveCache(merged);
+    // 일부 소스만 실패한 경우엔 성공한 쪽 일정을 그대로 보여준다 (경고는 signed_out 만 전달)
+    const err = errors.includes("signed_out") ? "signed_out" : undefined;
+    return { configured: true, sources: okSources, events: merged, fetchedAt: Date.now(), error: err };
+  }
+
+  // 모두 실패 → 마지막 성공 캐시
+  const cached = loadCache();
+  return {
+    configured: true,
+    sources: [],
+    events: cached ? cached.events : [],
+    fetchedAt: cached ? cached.fetchedAt : null,
+    error: errors[0] || "error",
+  };
 });
 
 // 창은 항상 패널 크기의 투명 창. 알약↔패널 전환은 렌더러 안에서 애니메이션으로.
@@ -209,6 +235,28 @@ function sendPillOffset() {
   win.webContents.send("pill-offset", { left: pos.x + PILL_PAD - wx, top: pos.y + PILL_PAD - wy });
 }
 
+// 메뉴 막대 모드에서 사용자가 패널을 끌어 옮긴 자리 (패널 창 좌상단). 없으면 기본 자리.
+let panelPos = null;
+function ensurePanelPos() {
+  if (panelPos) return panelPos;
+  const saved = loadConfig().panelPos;
+  if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) panelPos = { x: saved.x, y: saved.y };
+  return panelPos;
+}
+function menubarBounds() {
+  const pos = ensurePanelPos();
+  return pos ? clamp({ ...PANEL, x: pos.x, y: pos.y }) : homeBounds();
+}
+
+// 앱이 스스로 옮긴 위치. 'moved' 이벤트에서 사용자 드래그(헤더를 잡고 OS가 옮긴 것)와 구분하는 데 쓴다.
+let expectedPos = null;
+function place(bounds) {
+  if (!win || win.isDestroyed()) return;
+  win.setBounds(bounds, false);
+  const [x, y] = win.getPosition();
+  expectedPos = { x, y };
+}
+
 function ensurePillPos() {
   if (pillPos) return pillPos;
   const saved = loadConfig().pillPos;
@@ -227,7 +275,7 @@ function toPillWindow() {
   const size = pillWinSize();
   // 위치는 기준 좌표 그대로. 크기가 달라져도 x/y 를 다시 계산하지 않는다.
   const b = clamp({ ...size, x: pos.x, y: pos.y });
-  win.setBounds(b, false);
+  place(b);
   // 화면 밖이라 보정된 경우에만 기준 좌표를 따라 옮긴다
   if (b.x !== pos.x || b.y !== pos.y) pillPos = { x: b.x, y: b.y };
   sendPillOffset();
@@ -240,13 +288,12 @@ function toPanelWindow() {
   // 알약이 있던 자리(기준 좌표)를 중심으로 펼친다. pillPos 는 절대 바꾸지 않는다.
   const pos = ensurePillPos();
   const size = pillWinSize();
-  win.setBounds(
+  place(
     clamp({
       ...PANEL,
       x: Math.round(pos.x + size.width / 2 - PANEL.width / 2),
       y: Math.round(pos.y + size.height / 2 - PANEL.height / 2),
     }),
-    false,
   );
   sendPillOffset();
 }
@@ -281,16 +328,17 @@ let savePosTimer = null;
 function savePosSoon() {
   clearTimeout(savePosTimer);
   savePosTimer = setTimeout(() => {
-    if (!win || win.isDestroyed() || placement === "menubar" || centered) return;
-    saveConfig({ ...loadConfig(), pillPos: ensurePillPos() });
+    if (!win || win.isDestroyed() || centered) return;
+    const next = { ...loadConfig(), pillPos: ensurePillPos() };
+    if (panelPos) next.panelPos = panelPos;
+    saveConfig(next);
   }, 400);
 }
 
 // 화면 밖으로 나가지 않게 보정
 function clamp(bounds) {
-  const { workArea } = screen.getDisplayMatching(bounds).workArea
-    ? screen.getDisplayMatching(bounds)
-    : screen.getPrimaryDisplay();
+  // 창이 걸쳐 있는 모니터의 작업 영역 기준 (서브 모니터에 둔 창은 서브 모니터 안에서 보정)
+  const { workArea } = screen.getDisplayMatching(bounds);
   return {
     ...bounds,
     x: Math.min(
@@ -330,6 +378,28 @@ function createWindow() {
   // 다른 곳 클릭(포커스 아웃)
   //  - 화면에 띄우기: 렌더러에 알려서 위젯으로 접기
   //  - 메뉴 막대: 창 자체를 숨김
+  // 헤더(드래그 영역)를 잡고 옮기면 OS 가 직접 창을 움직여 앱은 모른다 → 'moved' 로 받아서 기억
+  win.on("moved", () => {
+    if (!win || win.isDestroyed() || centered) return;
+    const [x, y] = win.getPosition();
+    if (expectedPos && Math.abs(x - expectedPos.x) < 2 && Math.abs(y - expectedPos.y) < 2) return; // 앱이 옮긴 것
+    expectedPos = { x, y };
+    if (placement === "menubar") {
+      panelPos = { x, y };
+    } else if (winMode === "panel") {
+      // 패널을 옮겼으면 알약 기준 좌표도 같은 관계를 유지하도록 역산
+      const size = pillWinSize();
+      pillPos = {
+        x: Math.round(x + PANEL.width / 2 - size.width / 2),
+        y: Math.round(y + PANEL.height / 2 - size.height / 2),
+      };
+      sendPillOffset();
+    } else {
+      pillPos = { x, y };
+    }
+    savePosSoon();
+  });
+
   win.on("blur", () => {
     if (placement === "menubar") win?.hide();
     else win?.webContents.send("window-blur");
@@ -348,7 +418,7 @@ let trayTitle = "";
 
 function showPanelUnderTray(fromTray = false) {
   if (!win || !tray) return;
-  win.setBounds(homeBounds(), false);
+  place(menubarBounds()); // 사용자가 옮겨둔 자리가 있으면 그 자리(다른 모니터 포함)
   win.setBackgroundColor("#00000000");
   win.setIgnoreMouseEvents(false);
   win.show();
@@ -382,12 +452,12 @@ function applyPlacement() {
   if (placement === "menubar") {
     createTray();
     win.hide();
-    win.setBounds(homeBounds(), false);
+    place(menubarBounds());
   } else {
     destroyTray();
     // 패널이 작은 창에 짜부라지는 순간이 보이지 않게: 숨기고 → 크기 변경 → 렌더러가 위젯 모드로 그린 뒤 표시
     win.hide();
-    win.setBounds(homeBounds(), false);
+    place(homeBounds());
     win.setBackgroundColor("#00000000");
     win.webContents.send("placement", placement);
     setTimeout(() => {
@@ -466,7 +536,7 @@ ipcMain.on("center-window", (_e, on) => {
   if (!win) return;
   centered = !!on;
   if (on) winMode = "panel";
-  win.setBounds(homeBounds(), false);
+  place(homeBounds());
 });
 
 // 알약 상태: 투명 영역 클릭을 뒤로 통과 (forward: hover는 계속 감지)
@@ -482,6 +552,7 @@ ipcMain.on("move-by", (_e, dx, dy) => {
   const mx = Math.round(dx);
   const my = Math.round(dy);
   win.setPosition(x + mx, y + my, false);
+  expectedPos = { x: x + mx, y: y + my };
   const pos = ensurePillPos();
   pillPos = { x: pos.x + mx, y: pos.y + my }; // 기준 좌표도 같이 이동
   savePosSoon();

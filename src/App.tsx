@@ -31,7 +31,8 @@ declare global {
       openExternal: (url: string) => Promise<void>;
       calendarEvents: () => Promise<{
         configured: boolean;
-        source?: "google" | "ics" | "local";
+        sources?: Array<"google" | "ics">;
+        source?: "local";
         events: CalEvent[];
         fetchedAt?: number | null;
         error?: "rate_limited" | "offline" | "error" | "signed_out";
@@ -711,7 +712,7 @@ function Onboarding({
   const STEPS = 3;
   const next = () => setStep((v) => Math.min(STEPS - 1, v + 1));
   const back = () => setStep((v) => Math.max(0, v - 1));
-  const icsValid = /^https?:\/\//.test(ics.trim());
+  const icsValid = /^(https?|webcal):\/\//i.test(ics.trim());
 
   const saveIcs = async () => {
     if (!icsValid) return;
@@ -848,7 +849,7 @@ function Onboarding({
                     onClick={() => setShowIcs((v) => !v)}
                     className="mt-3 cursor-pointer text-left text-[12px] text-muted underline-offset-2 hover:text-foreground hover:underline"
                   >
-                    {showIcs ? "▾" : "▸"} iCloud·iCal 주소로 연결하기
+                    {showIcs ? "▾" : "▸"} iCloud·iCal 주소도 함께 연결하기
                   </button>
                   {showIcs && (
                     <div className="mt-3">
@@ -859,7 +860,7 @@ function Onboarding({
                           onKeyDown={(e) => {
                             if (e.key === "Enter") saveIcs();
                           }}
-                          placeholder="https://…/basic.ics"
+                          placeholder="webcal://… 또는 https://…/basic.ics"
                           className="sk-underline min-w-0 flex-1 border-b border-foreground bg-transparent py-2 font-mono text-[12px] text-foreground outline-none placeholder:text-muted"
                         />
                         <button
@@ -871,9 +872,9 @@ function Onboarding({
                         </button>
                       </div>
                       <p className="mt-2 text-[11px] leading-relaxed text-muted">
-                        iCloud: 캘린더 앱 → 공유 → 공개 캘린더 → 링크의 <span className="font-mono">webcal://</span>을 <span className="font-mono">https://</span>로.
+                        iCloud: 캘린더 앱 → 공유 → <b>공개 캘린더</b> → 링크 복사 (webcal 주소 그대로 붙여도 돼요)
                         <br />
-                        회사 계정은 iCal 주소가 막혀 있을 수 있어요 — 위 Google 연결을 권해요.
+                        Google 계정 연결과 함께 쓰면 두 곳의 일정이 합쳐져 보여요.
                       </p>
                     </div>
                   )}
@@ -1139,7 +1140,7 @@ export default function App() {
 
   const saveIcsUrl = async () => {
     const url = icsInput.trim();
-    if (!url.startsWith("http")) return;
+    if (!/^(https?|webcal):\/\//i.test(url)) return;
     await window.widget?.calendarSetUrl(url);
     setIcsInput("");
     setSavedIcsUrl(url);
@@ -2020,8 +2021,8 @@ export default function App() {
                       !isElectron
                         ? "앱에서만 연동할 수 있어요"
                         : savedIcsUrl
-                          ? "iCal 주소로 오늘 일정을 가져와요"
-                          : "iCloud 등 iCal 주소로도 연결할 수 있어요"
+                          ? "이 주소의 오늘 일정도 함께 표시 중"
+                          : "iCloud 공개 주소나 Google iCal 주소를 추가로 연결할 수 있어요"
                     }
                   >
                     {isElectron && (
@@ -2039,13 +2040,16 @@ export default function App() {
                   {isElectron && calEditing && (
                     <div className="flex flex-col gap-3 px-4 py-4">
                       <p className="text-[11.5px] leading-relaxed text-muted">
-                        구글 캘린더 → ⚙ 설정 → 왼쪽 <b>내 캘린더의 설정</b> 아래 <b>내 이름</b> 클릭 → 맨 아래 <b>iCal 형식의 비공개 주소</b> 복사.
-                        주소는 이 컴퓨터에만 저장됩니다.
+                        <b>iCloud</b>: 캘린더 앱 → 캘린더 공유 → <i>공개 캘린더</i> → 링크 복사 (webcal 주소 그대로 붙여도 돼요)
+                        <br />
+                        <b>Google</b>: ⚙ 설정 → <b>내 캘린더의 설정</b> → 내 이름 → 맨 아래 <b>iCal 형식의 비공개 주소</b>
+                        <br />
+                        Google 계정 연결과 함께 쓰면 두 곳의 오늘 일정이 합쳐져 보여요. 주소는 이 컴퓨터에만 저장됩니다.
                       </p>
                       <div className="flex items-center gap-2">
                         <input
                           autoFocus
-                          placeholder="https://calendar.google.com/…/basic.ics"
+                          placeholder="webcal://… 또는 https://…/basic.ics"
                           value={icsInput}
                           onChange={(e) => setIcsInput(e.target.value)}
                           onKeyDown={(e) => {
@@ -2062,7 +2066,7 @@ export default function App() {
                             saveIcsUrl();
                             setCalEditing(false);
                           }}
-                          disabled={!icsInput.trim().startsWith("http")}
+                          disabled={!/^(https?|webcal):\/\//i.test(icsInput.trim())}
                           className="cursor-pointer rounded-lg bg-foreground px-3 py-1.5 text-[12px] font-bold text-background hover:opacity-80 disabled:cursor-default disabled:opacity-30"
                         >
                           저장

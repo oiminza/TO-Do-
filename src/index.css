@@ -642,27 +642,35 @@ html.win95 input {
   background-image: none !important;
 }
 
-/* 할일 추가 줄: 흰 필드 안 오른쏙에 콤보박스식 회색 버튼 */
+/* 할일 추가 줄: 패널 맨 아래 고정. 흰 필드 + 오른쪽 끝 꽉 찬 회색 버튼(콤보박스식) */
+html.win95 .w95-addbar {
+  flex: 0 0 auto;
+  padding: 0 10px 10px;   /* 페이지 좌우·아래 여백과 맞춤 */
+  margin-top: -4px;       /* 리스트박스 아래 여백 일부 상쇄 */
+  background: var(--w-face);
+}
 html.win95 .sk-addrow {
   background: #fff;
   box-shadow: var(--bevel-field);
-  padding: 2px 2px 2px 0 !important;
-  margin-top: 6px !important;
-  gap: 0;
+  padding: 2px !important;
+  margin: 0 !important;
+  height: 24px;
+  align-items: stretch !important;
 }
 html.win95 .sk-addrow > input,
 html.win95 .sk-addrow > input:focus {
   background: transparent !important;
   box-shadow: none !important;
   border: 0 !important;
-  padding: 3px 4px !important;
+  padding: 0 4px !important;
+  height: 100%;
 }
 html.win95 .w95-send {
   display: flex !important;
   align-items: center;
   justify-content: center;
   width: 17px;
-  height: 17px;
+  height: 100%;           /* 필드 안쪽 높이에 꽉 */
   flex: 0 0 auto;
   background: var(--w-face);
   color: #000;
@@ -674,7 +682,6 @@ html.win95 .w95-send:active svg { transform: translate(1px, 1px); }
 html.win95 .w95-send:disabled {
   cursor: default;
   color: var(--w-shadow);
-  text-shadow: 1px 1px 0 var(--w-light); /* Win95 비활성 새김 글자 */
 }
 html.win95 .w95-send:disabled svg { filter: drop-shadow(1px 1px 0 var(--w-light)); }
 

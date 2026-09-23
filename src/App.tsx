@@ -1499,7 +1499,15 @@ export default function App() {
   };
 
   const update = (id: string, patch: Partial<Task>) =>
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    setTasks((ts) =>
+      ts.map((t) => {
+        if (t.id !== id) return t;
+        const next = { ...t, ...patch };
+        // To-do 를 벗어나면(Later / Done) 그룹에서 자동으로 무어진다 — 그룹은 오늘 할 일을 묶는 것이므로
+        if (patch.status && patch.status !== "todo") next.group = undefined;
+        return next;
+      }),
+    );
 
   const removeTask = (id: string) =>
     setTasks((ts) => ts.filter((t) => t.id !== id));

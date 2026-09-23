@@ -123,7 +123,7 @@ const StrikeCtx = createContext<StrikeStyle>("line");
 
 // ─── 스킨 (기본 / 낙서) ───────────────────────────────
 // 낙서: 종이 배경 + 손글씨 + 샐뻗한 테두리/선 + 노란 형광펜 탭. <html class="sketch">로 켜짐
-type Look = "default" | "sketch";
+type Look = "default" | "sketch" | "win95";
 
 type GoogleStatus = { signedIn: boolean; email: string; clientConfigured: boolean };
 
@@ -136,13 +136,15 @@ type UpdateInfo =
 const WEB_VERSION = "dev";
 const loadLook = (): Look => {
   const v = localStorage.getItem("my-day-look");
-  if (v === "default" || v === "sketch") return v;
+  if (v === "default" || v === "sketch" || v === "win95") return v;
   // 예전 '완료 표시: 낙서' 설정을 쓰던 사용자는 낙서 스킨으로 이어감
   // 예전 '완료 표시: 직선' 설정을 쓰던 사용자만 기본 스킨 유지, 그 외 신규는 낙서가 기본
   return localStorage.getItem("my-day-strike") === "line" ? "default" : "sketch";
 };
-const applyLook = (l: Look) =>
+const applyLook = (l: Look) => {
   document.documentElement.classList.toggle("sketch", l === "sketch");
+  document.documentElement.classList.toggle("win95", l === "win95");
+};
 
 // 손그림 테두리/선을 샐뻗하게 만드는 SVG 필터. CSS에서 filter:url(#sketchy)로 참조
 function SketchFilter() {
@@ -631,6 +633,44 @@ function SkinPreviewDefault() {
   );
 }
 
+function SkinPreviewWin95() {
+  const bevelOut = "inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf";
+  const bevelIn = "inset 1px 1px #808080, inset -1px -1px #fff, inset 2px 2px #000, inset -2px -2px #dfdfdf";
+  return (
+    <div
+      className="h-[118px] w-full overflow-hidden bg-[#008080] p-2"
+      style={{ fontFamily: '"Galmuri11", "Pretendard Variable", sans-serif' }}
+      aria-hidden
+    >
+      <div className="h-full bg-[#c0c0c0] p-[3px]" style={{ boxShadow: bevelOut }}>
+        <div className="flex h-[14px] items-center justify-between bg-[linear-gradient(90deg,#000080,#1084d0)] px-1 text-[8px] font-bold text-white">
+          <span>My Day</span>
+          <span className="flex h-[10px] w-[11px] items-center justify-center bg-[#c0c0c0] text-[8px] font-bold text-black" style={{ boxShadow: bevelOut }}>×</span>
+        </div>
+        <div className="mt-1.5 flex gap-[2px] text-[7px] text-black">
+          <span className="bg-[#c0c0c0] px-1.5 py-[1px]" style={{ boxShadow: bevelOut }}>To-do</span>
+          <span className="px-1.5 py-[1px] text-[#444]">Later</span>
+          <span className="px-1.5 py-[1px] text-[#444]">Done</span>
+        </div>
+        <div className="mt-1.5 space-y-[5px] bg-white px-1.5 py-1.5 text-[8px] text-black" style={{ boxShadow: bevelIn }}>
+          <div className="flex items-center gap-1.5">
+            <span className="flex h-[9px] w-[9px] items-center justify-center bg-white text-[7px] leading-none" style={{ boxShadow: bevelIn }}>✓</span>
+            <span className="line-through">리서치 정리</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-[#000080] px-0.5 text-white">
+            <span className="h-[9px] w-[9px] bg-white" style={{ boxShadow: bevelIn }} />
+            <span>주간 미팅 준비</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-[9px] w-[9px] bg-white" style={{ boxShadow: bevelIn }} />
+            <span>디자인 QA</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SkinPreviewSketch() {
   const ink = "#1d1d1b";
   return (
@@ -765,6 +805,7 @@ function Onboarding({
                   [
                     ["sketch", "낙서", "종이에 펜으로 그린"],
                     ["default", "기본", "깔끔하고 차분한"],
+                    ["win95", "Win95", "그 시절 회색 창"],
                   ] as const
                 ).map(([key, label, desc]) => {
                   const on = look === key;
@@ -784,7 +825,7 @@ function Onboarding({
                           </svg>
                         </span>
                       )}
-                      {key === "sketch" ? <SkinPreviewSketch /> : <SkinPreviewDefault />}
+                      {key === "sketch" ? <SkinPreviewSketch /> : key === "win95" ? <SkinPreviewWin95 /> : <SkinPreviewDefault />}
                       <div className="px-1 pb-0.5">
                         <p className="text-[13.5px] font-semibold text-foreground">{label}</p>
                         <p className="text-[11.5px] text-muted">{desc}</p>
@@ -1835,6 +1876,22 @@ export default function App() {
               </svg>
             </button>
           )}
+          {onboarded && look === "win95" && isElectron && placement === "floating" && (
+            <button
+              onClick={() => {
+                setOpen(false);
+                setSettingsOpen(false);
+                window.widget?.setMode("widget");
+              }}
+              aria-label="접기"
+              style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+              className="w95-close absolute right-1.5 top-1/2 flex h-[18px] w-[18px] -translate-y-1/2 cursor-pointer items-center justify-center text-black"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" />
+              </svg>
+            </button>
+          )}
           {onboarded && (
           <button
             onClick={(e) => {
@@ -1967,7 +2024,9 @@ export default function App() {
                     desc={
                       look === "sketch"
                         ? "종이에 손으로 그린 듯한 낙서 스킨이에요"
-                        : "깔끔한 기본 스킨이에요"
+                        : look === "win95"
+                          ? "회색 창과 파란 제목 막대, 그 시절 그 느낌"
+                          : "깔끔한 기본 스킨이에요"
                     }
                   >
                     <Dropdown<Look>
@@ -1976,6 +2035,7 @@ export default function App() {
                       options={[
                         ["default", "기본"],
                         ["sketch", "낙서"],
+                        ["win95", "Win95"],
                       ]}
                     />
                   </SettingRow>

@@ -12,6 +12,12 @@
   font-display: swap;
 }
 @font-face {
+  font-family: "Galmuri11";
+  src: url("/fonts/Galmuri11.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
   font-family: "Poor Story";
   src: url("/fonts/PoorStory-Regular.ttf") format("truetype");
   font-weight: 400;
@@ -361,3 +367,220 @@ html.sketch .sk-pill {
 }
 html.sketch .sk-pill > span:first-child { color: var(--ink) !important; font-size: 14px !important; font-weight: 400; }
 html.sketch .sk-pill > span:last-child { color: var(--pencil) !important; font-size: 13px !important; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Win95 스킨 (html.win95) — 회색 3D 베벨, 파란 제목 막대, 픽셀 폰트
+   ═══════════════════════════════════════════════════════════════════════ */
+html.win95 {
+  --w-face: #c0c0c0;
+  --w-light: #ffffff;
+  --w-hilite: #dfdfdf;
+  --w-shadow: #808080;
+  --w-dark: #000000;
+  --w-title-a: #000080;
+  --w-title-b: #1084d0;
+  --w-select: #000080;
+  --w-paper: #ffffff;
+  --w-desktop: #008080;
+
+  /* 앱 토큰을 Win95 팔레트로 */
+  --background: var(--w-face);
+  --background-secondary: var(--w-face);
+  --surface: var(--w-face);
+  --foreground: #000000;
+  --muted: #444444;
+  --border: var(--w-shadow);
+
+  /* 3D 베벨 (튀어나옴 / 들어감) */
+  --bevel-out: inset -1px -1px var(--w-dark), inset 1px 1px var(--w-light), inset -2px -2px var(--w-shadow), inset 2px 2px var(--w-hilite);
+  --bevel-in: inset 1px 1px var(--w-shadow), inset -1px -1px var(--w-light), inset 2px 2px var(--w-dark), inset -2px -2px var(--w-hilite);
+  --bevel-field: inset 1px 1px var(--w-shadow), inset -1px -1px var(--w-light), inset 2px 2px var(--w-dark), inset -2px -2px var(--w-face);
+}
+html.win95.dark {
+  /* Win95 는 다크 모드가 없었다 — 같은 팔레트 유지 */
+  --foreground: #000000;
+  --muted: #444444;
+}
+
+/* 픽셀 폰트: 안티에일리어싱 끄고 정수 px 크기로 */
+html.win95 body,
+html.win95 .font-mono {
+  font-family: "Galmuri11", "Pretendard Variable", sans-serif;
+  -webkit-font-smoothing: none;
+  letter-spacing: 0;
+}
+html.win95 .sk-outer { font-size-adjust: none; }
+html.win95 .font-bold, html.win95 .font-semibold, html.win95 b { font-weight: 700; }
+
+/* ── 바깥 창: 각진 회색 창 + 베벨 ── */
+html.win95 .sk-outer {
+  border-radius: 0 !important;
+  background: var(--w-face);
+  box-shadow: var(--bevel-out), 4px 4px 0 rgba(0, 0, 0, 0.35) !important;
+  padding: 3px;
+}
+/* 제목 막대 */
+html.win95 .sk-head {
+  margin: 0 0 3px;
+  padding: 3px 4px 3px 6px !important;
+  background: linear-gradient(90deg, var(--w-title-a), var(--w-title-b));
+  color: #fff !important;
+  font-weight: 700;
+  font-size: 12px;
+  text-align: left !important;
+  letter-spacing: 0;
+}
+/* 제목 막대 버튼(⚙, ✕): 회색 사각 베벨 버튼 */
+html.win95 .sk-gear,
+html.win95 .w95-close {
+  border-radius: 0 !important;
+  background: var(--w-face) !important;
+  color: #000 !important;
+  width: 18px !important;
+  height: 16px !important;
+  box-shadow: var(--bevel-out);
+}
+html.win95 .sk-gear { right: 24px !important; }
+html.win95 .sk-gear:active,
+html.win95 .w95-close:active { box-shadow: var(--bevel-in); }
+html.win95 .sk-gear svg { width: 11px; height: 11px; }
+
+/* 안쪽 패널: 흰 작업 영역(들어간 베벨) */
+html.win95 .sk-panel {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  background: var(--w-paper);
+  box-shadow: var(--bevel-field);
+  overflow: hidden !important;
+  min-height: 0;
+}
+html.win95 .sk-panel::before,
+html.win95 .sk-panel::after { display: none; }
+
+/* 탭: 클래식 탭 컨트롤 */
+html.win95 [data-slot="tabs-list-container"],
+html.win95 [data-slot="tabs-list"] {
+  background: transparent !important;
+  padding: 0 !important;
+  gap: 2px;
+  border-bottom: 2px solid var(--w-light);
+  overflow: visible !important;
+}
+html.win95 [data-slot="tab"] {
+  border-radius: 0 !important;
+  background: var(--w-face) !important;
+  color: #000 !important;
+  height: 26px !important;
+  font-size: 12px;
+  box-shadow: inset -1px 0 var(--w-dark), inset 1px 1px var(--w-light), inset -2px 0 var(--w-shadow);
+  margin-top: 3px;
+}
+html.win95 [data-slot="tab"][data-selected] {
+  margin-top: 0;
+  height: 29px !important;
+  position: relative;
+  z-index: 2;
+}
+html.win95 [data-slot="tabs-indicator"] { display: none !important; }
+html.win95 [data-slot="tabs-indicator"]::after { display: none; }
+
+/* 체크박스: 사각 베벨 + 검은 체크 */
+html.win95 .sk-check,
+html.win95 .group:nth-child(4n+2) .sk-check,
+html.win95 .group:nth-child(4n+3) .sk-check,
+html.win95 .group:nth-child(4n+4) .sk-check {
+  width: 13px !important;
+  height: 13px !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  background: #fff !important;
+  box-shadow: var(--bevel-field);
+  transform: none !important;
+  filter: none !important;
+}
+html.win95 .sk-check[aria-checked="true"] { background: #fff !important; color: #000; }
+html.win95 .sk-check svg { width: 9px; height: 9px; stroke: #000; }
+
+/* 선택 항목: 남색 배경 + 흰 글씨 */
+html.win95 .sk-selected {
+  background: var(--w-select) !important;
+  color: #fff !important;
+  border-radius: 0 !important;
+  transform: none;
+  box-shadow: none;
+  filter: none;
+}
+html.win95 .sk-selected * { color: #fff !important; }
+
+/* 버튼류·카드: 3D 회색 버튼 / 들어간 그룹 박스 */
+html.win95 .sk-box {
+  border-radius: 0 !important;
+  border-color: transparent !important;
+  background: var(--w-face) !important;
+  box-shadow: var(--bevel-out) !important;
+}
+html.win95 .sk-box.shadow-lg { box-shadow: var(--bevel-out), 3px 3px 0 rgba(0, 0, 0, 0.35) !important; }
+html.win95 .divide-y > :not(:first-child) { border-top: 1px solid var(--w-shadow) !important; box-shadow: 0 1px 0 var(--w-light) inset; }
+html.win95 .rounded-lg, html.win95 .rounded-xl, html.win95 .rounded-2xl, html.win95 .rounded-full { border-radius: 0 !important; }
+html.win95 .bg-foreground { background: var(--w-face) !important; color: #000 !important; box-shadow: var(--bevel-out); }
+html.win95 .bg-foreground:active { box-shadow: var(--bevel-in); }
+html.win95 .text-background { color: #000 !important; }
+html.win95 .bg-background-secondary { background: var(--w-face) !important; box-shadow: var(--bevel-out); }
+
+/* 입력창: 흰 필드 + 들어간 베벨 */
+html.win95 .sk-underline,
+html.win95 input {
+  background: #fff !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: var(--bevel-field);
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  background-image: none !important;
+}
+
+/* 스크롤바: 클래식 (트랙 체크무늬, 베벨 썸) */
+html.win95 .sk-scroll::-webkit-scrollbar { width: 16px; }
+html.win95 .sk-scroll::-webkit-scrollbar-track {
+  background-color: var(--w-face);
+  background-image: linear-gradient(45deg, var(--w-light) 25%, transparent 25%, transparent 75%, var(--w-light) 75%),
+    linear-gradient(45deg, var(--w-light) 25%, transparent 25%, transparent 75%, var(--w-light) 75%);
+  background-size: 2px 2px;
+  background-position: 0 0, 1px 1px;
+}
+html.win95 .sk-scroll::-webkit-scrollbar-thumb {
+  background: var(--w-face);
+  box-shadow: var(--bevel-out);
+  border-radius: 0;
+  background-image: none;
+}
+html.win95 .sk-scroll::-webkit-scrollbar-button:single-button {
+  background: var(--w-face);
+  box-shadow: var(--bevel-out);
+  height: 16px;
+}
+
+/* 그래프: 계단식 픽셀 선 */
+html.win95 .sk-line { filter: none; stroke-width: 2; shape-rendering: crispEdges; }
+html.win95 .sk-area { fill: var(--w-select) !important; fill-opacity: 0.15; filter: none; }
+html.win95 .sk-box svg text { font-family: "Galmuri11", sans-serif; font-size: 11px; }
+html.win95 .sk-box svg line { stroke-dasharray: 1 2; }
+
+/* 알약: 작은 회색 창 조각 (Start 버튼 느낌) */
+html.win95 .sk-pill {
+  border-radius: 0 !important;
+  border: 0 !important;
+  background: var(--w-face) !important;
+  color: #000 !important;
+  box-shadow: var(--bevel-out), 3px 3px 0 rgba(0, 0, 0, 0.35) !important;
+  font-family: "Galmuri11", sans-serif;
+  padding: 6px 12px !important;
+}
+html.win95 .sk-pill:active { box-shadow: var(--bevel-in) !important; }
+html.win95 .sk-pill > span:first-child { color: #000 !important; font-size: 13px !important; font-weight: 700; }
+html.win95 .sk-pill > span:last-child { color: #444 !important; font-size: 12px !important; }
+
+/* 완료 취소선은 굵게(픽셀) */
+html.win95 .line-through { text-decoration-thickness: 2px; }
+html.win95 .animate-strike { filter: none; height: 2px !important; }

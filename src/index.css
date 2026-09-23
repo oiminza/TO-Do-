@@ -424,6 +424,9 @@ html.win95 .sk-outer *, html.win95 .sk-pill * {
   text-shadow: 0.5px 0 0 currentColor;
 }
 html.win95 .sk-outer svg, html.win95 .sk-outer svg * { text-shadow: none; }
+/* 본문(Schedule/Tasks 제목, 할일 줄, 입력창) 글자 한 단계 작게 */
+html.win95 .sk-body .text-\[14px\] { font-size: 13px !important; }
+html.win95 .sk-body .text-\[13\.5px\], html.win95 .sk-body input { font-size: 12.5px !important; }
 /* 탭 글자: 미디엄과 볼드 사이 — 가로·세로 0.5px 그림자로 반 단계 더 두껍게 */
 html.win95 [data-slot="tabs-tab"] {
   text-shadow: 0.5px 0 0 currentColor, 0 0.5px 0 currentColor, 0.5px 0.5px 0 currentColor;

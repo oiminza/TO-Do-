@@ -424,6 +424,11 @@ html.win95 .sk-outer *, html.win95 .sk-pill * {
   text-shadow: 0.5px 0 0 currentColor;
 }
 html.win95 .sk-outer svg, html.win95 .sk-outer svg * { text-shadow: none; }
+/* 제목 막대는 Win95 원본처럼 진짜 볼드 */
+html.win95 .sk-head, html.win95 .sk-head > span, html.win95 .sk-head > div {
+  font-weight: 700 !important;
+  text-shadow: none;
+}
 
 /* ── 바깥 창: 각진 회색 창 + 베벨 ── */
 html.win95 .sk-outer {

@@ -424,7 +424,7 @@ html.win95 .sk-outer {
 html.win95 .sk-head {
   margin: 0 0 3px;
   padding: 3px 4px 3px 6px !important;
-  background: linear-gradient(90deg, var(--w-title-a), var(--w-title-b));
+  background: var(--w-title-a);
   color: #fff !important;
   font-weight: 700;
   font-size: 12px;
@@ -446,43 +446,112 @@ html.win95 .sk-gear:active,
 html.win95 .w95-close:active { box-shadow: var(--bevel-in); }
 html.win95 .sk-gear svg { width: 11px; height: 11px; }
 
-/* 안쪽 패널: 흰 작업 영역(들어간 베벨) */
+/* 안쪽 패널: 창 본체(회색) — Help Topics 대화상자 구조
+   [회색 창] > [탭 줄] > [회색 페이지(튀어나온 베벨)] > [흰 리스트박스(들어간 베벨)] */
 html.win95 .sk-panel {
   margin: 0 !important;
   border-radius: 0 !important;
-  background: var(--w-paper);
-  box-shadow: var(--bevel-field);
+  background: var(--w-face) !important;
+  box-shadow: none;
   overflow: hidden !important;
   min-height: 0;
 }
 html.win95 .sk-panel::before,
 html.win95 .sk-panel::after { display: none; }
 
-/* 탭: 클래식 탭 컨트롤 */
-html.win95 [data-slot="tabs-list-container"],
-html.win95 [data-slot="tabs-list"] {
-  background: transparent !important;
-  padding: 0 !important;
-  gap: 2px;
-  border-bottom: 2px solid var(--w-light);
-  overflow: visible !important;
+/* 튀어나온 페이지 바깥 베벨(바깥 흰/검, 안쪽 밝은회/진회) — 바깥 그림자로 그림 */
+html.win95 {
+  /* 왼쪽(밝은회→흰) + 오른쪽·아래(진회→검). 윗선은 탭 줄(::after)이 그림 */
+  --page-out: -1px 0 0 var(--w-hilite), -2px 0 0 var(--w-light), 1px 1px 0 var(--w-shadow), 2px 2px 0 var(--w-dark);
 }
-html.win95 [data-slot="tab"] {
-  border-radius: 0 !important;
-  background: var(--w-face) !important;
-  color: #000 !important;
-  height: 26px !important;
-  font-size: 12px;
-  box-shadow: inset -1px 0 var(--w-dark), inset 1px 1px var(--w-light), inset -2px 0 var(--w-shadow);
-  margin-top: 3px;
-}
-html.win95 [data-slot="tab"][data-selected] {
-  margin-top: 0;
-  height: 29px !important;
+
+/* 탭 줄: 페이지 위에 얹힘. 페이지 윗선을 선택 탭이 덮도록 z-index 위로 */
+html.win95 .sk-panel > .px-4 {
+  padding: 6px 8px 0 !important;
   position: relative;
   z-index: 2;
 }
-html.win95 [data-slot="tabs-indicator"] { display: none !important; }
+/* 콘텐츠(목록·설정·온보딩):
+   border = 회색 페이지 여백, 바깥 그림자 = 페이지 튀어나온 베벨, 안쪽 그림자 = 흰 필드 들어간 베벨 */
+html.win95 .sk-panel > .sk-scroll,
+html.win95 .sk-panel > .h-full {
+  background: var(--w-paper);
+  border: 10px solid var(--w-face);
+  border-top-width: 12px;
+  box-shadow: var(--page-out), var(--bevel-field);
+  margin: 0 10px 10px;
+  padding: 8px 8px 10px !important;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+}
+html.win95 .sk-panel > .h-full > .sk-scroll { padding-left: 12px !important; padding-right: 12px !important; }
+/* 설정 화면 '돌아가기' 줄은 탭 대신 메뉴 항목처럼 */
+html.win95 .sk-panel > .px-4 > button { border-radius: 0 !important; padding: 2px 6px !important; font-size: 12px; color: #000 !important; }
+
+/* 탭: 클래식 탭 컨트롤 (Help Topics 대화상자 참고)
+   - 탭 줄 높이 25px. 맨 아래 2px = 페이지 윗선(흰/밝은회)을 탭 줄이 직접 그림
+   - 선택 탭(25px)은 그 선을 덮어 페이지와 이어지고, 비선택 탭(21px)은 선 위에 얹힘 */
+html.win95 [data-slot="tabs-list-container"] {
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: visible !important;
+  position: relative;
+}
+html.win95 [data-slot="tabs-list-container"]::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2px;
+  background: linear-gradient(to bottom, var(--w-light) 0 1px, var(--w-hilite) 1px 2px);
+  z-index: 0;
+}
+html.win95 .tabs__list-container__scroller { overflow: visible !important; }
+html.win95 .tabs__list-container__scroll-prev,
+html.win95 .tabs__list-container__scroll-next { display: none !important; }
+html.win95 [data-slot="tabs-list"] {
+  background: transparent !important;
+  padding: 0 0 0 2px !important;   /* 선택 탭이 -2px 튀어나올 자리 */
+  gap: 0 !important;
+  min-width: 0 !important;
+  width: auto !important;
+  height: 25px;
+  align-items: flex-end;
+  overflow: visible !important;
+}
+html.win95 [data-slot="tabs-tab"] {
+  width: auto !important;
+  flex: 0 0 auto !important;
+  border-radius: 0 !important;
+  background: var(--w-face) !important;
+  color: #000 !important;
+  opacity: 1 !important;
+  height: 21px !important;
+  padding: 0 8px 1px !important;
+  margin: 0 -1px 2px 0; /* 아래 2px는 페이지 윗선 자리, 오른쪽 -1px는 이웃 테두리 겹침 */
+  font-size: 12px;
+  font-weight: 400;
+  overflow: visible !important;
+  transition: none !important;
+  position: relative;
+  z-index: 1;
+  /* 위·왼쪽 밝음(바깥 흰 / 안 밝은회), 오른쪽 어두움(바깥 검 / 안 진회), 아래 열림 */
+  box-shadow:
+    inset 1px 0 var(--w-light), inset 0 1px var(--w-light),
+    inset 2px 0 var(--w-hilite), inset 0 2px var(--w-hilite),
+    inset -1px 0 var(--w-dark), inset -2px 0 var(--w-shadow);
+}
+html.win95 [data-slot="tabs-tab"]:hover { opacity: 1 !important; background: var(--w-face) !important; }
+html.win95 [data-slot="tabs-tab"][data-selected] {
+  height: 25px !important;
+  padding: 0 10px 3px !important;
+  margin: 0 -3px 0 -2px; /* 위로 2px, 좌우 2px 더 크게, 아래로 선을 덮음 */
+  z-index: 2;
+}
+html.win95 [data-slot="tabs-indicator"],
+html.win95 [data-slot="tabs-separator"] { display: none !important; }
 html.win95 [data-slot="tabs-indicator"]::after { display: none; }
 
 /* 체크박스: 사각 베벨 + 검은 체크 */

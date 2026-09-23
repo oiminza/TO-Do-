@@ -1654,9 +1654,24 @@ export default function App() {
             disabled={!input.trim()}
             className="w95-send hidden"
           >
-            <svg width="7" height="7" viewBox="0 0 7 7" aria-hidden shapeRendering="crispEdges">
+            {/* Win95: 픽셀 삼각형 */}
+            <svg className="ico-tri" width="7" height="7" viewBox="0 0 7 7" aria-hidden shapeRendering="crispEdges">
               <polygon points="0,0 7,3.5 0,7" fill="currentColor" />
             </svg>
+            {/* 낙서: 손으로 칠한 종이비행기 (살짝 비뚤게) */}
+            <svg className="ico-plane" width="20" height="20" viewBox="0 0 24 24" aria-hidden>
+              <path
+                d="M2.2 11.6 C 8 9.1, 15 5.8, 21.8 2.6 C 20.1 8.4, 17.6 15.2, 14.9 21.4 C 13.5 18.9, 12.2 16.6, 10.6 14.1 C 7.9 13.2, 5 12.4, 2.2 11.6 Z"
+                fill="currentColor"
+                stroke="currentColor"
+                strokeWidth="1.1"
+                strokeLinejoin="round"
+              />
+              <path d="M10.8 14 C 14.2 10.6, 17.8 6.9, 21.4 3.2" fill="none" stroke="var(--paper, #fff)" strokeWidth="1.2" strokeLinecap="round" />
+              <path d="M10.7 14.2 C 10.4 15.9, 10.2 17.3, 10 18.9" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+            </svg>
+            {/* 낙서: 손글씨 '추가' */}
+            <span className="ico-text">추가</span>
           </button>
         </div>
   );

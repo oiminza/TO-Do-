@@ -308,15 +308,43 @@ html.sketch .sk-underline.border-foreground {
 html.sketch.dark .sk-underline:focus,
 html.sketch.dark .sk-underline.border-foreground { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' preserveAspectRatio='none'><path d='M1 3.6 C 20 2.2, 40 4.4, 60 3.2 S 100 1.8, 120 3.4 S 160 4.6, 180 2.8 S 195 2.4, 199 3.4' fill='none' stroke='%23ebe7db' stroke-width='1.4' stroke-linecap='round'/></svg>"); }
 
-/* 하단 고정 Add task: 목록 여백과 맞추고, 손그림 잉크 선을 항상 그어둠 */
-html.sketch .w95-addbar { flex: 0 0 auto; padding: 4px 20px 14px; }
-html.sketch .w95-addbar .sk-addrow { padding-left: 0 !important; margin-top: 0 !important; }
-html.sketch .w95-addbar .sk-underline {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' preserveAspectRatio='none'><path d='M1 3.6 C 20 2.2, 40 4.4, 60 3.2 S 100 1.8, 120 3.4 S 160 4.6, 180 2.8 S 195 2.4, 199 3.4' fill='none' stroke='%231d1d1b' stroke-width='1.4' stroke-linecap='round'/></svg>");
+/* 하단 고정 Add task: 손으로 그린 네모 상자 + 오른쪽에 검정 종이비행기 */
+html.sketch .w95-addbar { flex: 0 0 auto; padding: 6px 20px 14px; }
+html.sketch .w95-addbar .sk-addrow {
+  padding: 0 6px 0 12px !important;
+  margin-top: 0 !important;
+  height: 40px;
+  align-items: center !important;
+  /* 비뚤비뚤한 펜 사각형. non-scaling-stroke로 늘려도 선 굵기 유지 */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 36' preserveAspectRatio='none'><path d='M2.4 3.2 C 60 1.6, 120 4.2, 180 2.6 S 262 4.1, 297.4 2.7 C 298.6 12, 297.2 24, 298 33.2 C 240 34.6, 160 32.3, 80 33.8 S 22 32.6, 2.8 33.5 C 1.6 24, 3 14, 2.4 3.2 Z' fill='none' stroke='%231d1d1b' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' vector-effect='non-scaling-stroke'/></svg>");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
 }
-html.sketch.dark .w95-addbar .sk-underline {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' preserveAspectRatio='none'><path d='M1 3.6 C 20 2.2, 40 4.4, 60 3.2 S 100 1.8, 120 3.4 S 160 4.6, 180 2.8 S 195 2.4, 199 3.4' fill='none' stroke='%23ebe7db' stroke-width='1.4' stroke-linecap='round'/></svg>");
+html.sketch.dark .w95-addbar .sk-addrow {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 36' preserveAspectRatio='none'><path d='M2.4 3.2 C 60 1.6, 120 4.2, 180 2.6 S 262 4.1, 297.4 2.7 C 298.6 12, 297.2 24, 298 33.2 C 240 34.6, 160 32.3, 80 33.8 S 22 32.6, 2.8 33.5 C 1.6 24, 3 14, 2.4 3.2 Z' fill='none' stroke='%23ebe7db' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' vector-effect='non-scaling-stroke'/></svg>");
 }
+/* 상자 안 입력은 밑줄 없이 */
+html.sketch .w95-addbar .sk-underline,
+html.sketch .w95-addbar .sk-underline:focus { background-image: none !important; border-bottom-color: transparent !important; }
+/* '추가' 손글씨 버튼 */
+html.sketch .w95-send {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 8px;
+  font-family: "Poor Story", "Patrick Hand", sans-serif;
+  font-size: 15px;
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+html.sketch .w95-send .ico-tri,
+html.sketch .w95-send .ico-plane { display: none; }
+html.sketch .w95-send:hover { background: var(--faint); }
+html.sketch .w95-send:active { transform: translateY(1px); }
+html.sketch .w95-send:disabled { cursor: default; opacity: 0.35; background: transparent; transform: none; }
 
 /* 선택된 항목: 종이색과 구별되게 형광펜으로 쓱 그은 듯한 밴드 + 왼쪽에 잉크 점 */
 html.sketch .sk-selected {
@@ -698,7 +726,9 @@ html.win95 .w95-send:active { box-shadow: var(--bevel-in); }
 html.win95 .w95-send:active svg { transform: translate(1px, 1px); }
 /* 비어 있어도 화살표는 항상 검정 (Win95 콤보박스처럼). 클릭만 막힘 */
 html.win95 .w95-send:disabled { cursor: default; color: #000; }
-html.win95 .w95-send svg { width: 8px; height: 9px; }
+html.win95 .w95-send .ico-tri { width: 8px; height: 9px; }
+html.win95 .w95-send .ico-plane,
+html.win95 .w95-send .ico-text { display: none; }
 
 /* 스크롤바: 클래식 (트랙 체크무늬, 베벨 썸) */
 html.win95 .sk-scroll::-webkit-scrollbar { width: 16px; }

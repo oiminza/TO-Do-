@@ -2020,7 +2020,8 @@ export default function App() {
           )}
 
           {/* 본문 — 탭/설정 전환 시 내용이 아래에서 위로 떠오름 */}
-          <div className={`sk-scroll flex-1 overflow-y-auto px-5 pb-5 ${settingsOpen ? "sk-settings" : ""}`}>
+          <div className={`sk-body flex min-h-0 flex-1 flex-col ${settingsOpen ? "sk-settings" : ""}`}>
+          <div className="sk-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-5">
           <AnimatePresence initial={false} mode="popLayout">
           <motion.div
             key={settingsOpen ? "settings" : seg}
@@ -2453,6 +2454,7 @@ export default function App() {
           {look === "win95" && !settingsOpen && seg === "todo" && (
             <div className="w95-addbar">{addTaskRow}</div>
           )}
+          </div>
           </>
           )}
 

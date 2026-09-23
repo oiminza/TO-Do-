@@ -485,7 +485,7 @@ html.win95 .sk-panel > .px-4 {
 }
 /* 콘텐츠(목록·설정·온보딩):
    border = 회색 페이지 여백, 바깥 그림자 = 페이지 튀어나온 베벨, 안쪽 그림자 = 흰 필드 들어간 베벨 */
-html.win95 .sk-panel > .sk-scroll,
+html.win95 .sk-panel > .sk-body,
 html.win95 .sk-panel > .h-full {
   background: var(--w-paper);
   border: 10px solid var(--w-face);
@@ -498,8 +498,9 @@ html.win95 .sk-panel > .h-full {
   z-index: 1;
 }
 html.win95 .sk-panel > .h-full > .sk-scroll { padding-left: 12px !important; padding-right: 12px !important; }
+html.win95 .sk-panel > .sk-body > .sk-scroll { padding: 0 6px !important; min-height: 0; }
 /* 설정 화면: 흰 리스트박스 없이 회색 페이지 그대로 */
-html.win95 .sk-panel > .sk-scroll.sk-settings {
+html.win95 .sk-panel > .sk-body.sk-settings {
   background: var(--w-face);
   /* 탭 줄이 없으니 윗선까지 포함한 튀어나온 베벨 */
   box-shadow: -1px -1px 0 var(--w-hilite), -2px -2px 0 var(--w-light), 1px 1px 0 var(--w-shadow), 2px 2px 0 var(--w-dark);
@@ -645,9 +646,8 @@ html.win95 input {
 /* 할일 추가 줄: 패널 맨 아래 고정. 흰 필드 + 오른쪽 끝 꽉 찬 회색 버튼(콤보박스식) */
 html.win95 .w95-addbar {
   flex: 0 0 auto;
-  padding: 0 10px 10px;   /* 페이지 좌우·아래 여백과 맞춤 */
-  margin-top: -4px;       /* 리스트박스 아래 여백 일부 상쇄 */
-  background: var(--w-face);
+  padding: 6px 2px 0;     /* 흰 박스 안, 목록과 살짝 띄움 */
+  background: #fff;
 }
 html.win95 .sk-addrow {
   background: #fff;

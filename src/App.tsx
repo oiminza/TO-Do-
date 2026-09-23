@@ -1331,6 +1331,15 @@ export default function App() {
   const openRef = useRef(false);
   openRef.current = open;
 
+  // 패널이 펼쳐지면 Add task 입력에 바로 포커스 → 알약 클릭 후 곧장 타이핑
+  const addInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!open || !onboarded || settingsOpen || seg !== "todo") return;
+    // 패널 등장 애니메이션이 끝난 뒤(≈0.4s) 포커스. 목록이 튀지 않게 스크롤은 건드리지 않음
+    const t = window.setTimeout(() => addInputRef.current?.focus({ preventScroll: true }), 420);
+    return () => window.clearTimeout(t);
+  }, [open, onboarded, settingsOpen, seg]);
+
   const openPanel = () => {
     if (!isElectron) {
       setOpen(true);
@@ -1634,6 +1643,7 @@ export default function App() {
   const addTaskRow = (
         <div className="sk-addrow mt-1 flex items-center pl-6">
           <input
+            ref={addInputRef}
             placeholder="+ Add task"
             value={input}
             onChange={(e) => setInput(e.target.value)}

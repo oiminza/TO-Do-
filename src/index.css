@@ -424,10 +424,9 @@ html.win95 .sk-outer *, html.win95 .sk-pill * {
   text-shadow: 0.5px 0 0 currentColor;
 }
 html.win95 .sk-outer svg, html.win95 .sk-outer svg * { text-shadow: none; }
-/* 제목 막대는 Win95 원본처럼 진짜 볼드 */
-html.win95 .sk-head, html.win95 .sk-head > span, html.win95 .sk-head > div {
-  font-weight: 700 !important;
-  text-shadow: none;
+/* 탭 글자: 미디엄과 볼드 사이 — 가로·세로 0.5px 그림자로 반 단계 더 두껍게 */
+html.win95 [data-slot="tabs-tab"] {
+  text-shadow: 0.5px 0 0 currentColor, 0 0.5px 0 currentColor, 0.5px 0.5px 0 currentColor;
 }
 
 /* ── 바깥 창: 각진 회색 창 + 베벨 ── */

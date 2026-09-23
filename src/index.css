@@ -308,6 +308,16 @@ html.sketch .sk-underline.border-foreground {
 html.sketch.dark .sk-underline:focus,
 html.sketch.dark .sk-underline.border-foreground { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' preserveAspectRatio='none'><path d='M1 3.6 C 20 2.2, 40 4.4, 60 3.2 S 100 1.8, 120 3.4 S 160 4.6, 180 2.8 S 195 2.4, 199 3.4' fill='none' stroke='%23ebe7db' stroke-width='1.4' stroke-linecap='round'/></svg>"); }
 
+/* 하단 고정 Add task: 목록 여백과 맞추고, 손그림 잉크 선을 항상 그어둠 */
+html.sketch .w95-addbar { flex: 0 0 auto; padding: 4px 20px 14px; }
+html.sketch .w95-addbar .sk-addrow { padding-left: 0 !important; margin-top: 0 !important; }
+html.sketch .w95-addbar .sk-underline {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' preserveAspectRatio='none'><path d='M1 3.6 C 20 2.2, 40 4.4, 60 3.2 S 100 1.8, 120 3.4 S 160 4.6, 180 2.8 S 195 2.4, 199 3.4' fill='none' stroke='%231d1d1b' stroke-width='1.4' stroke-linecap='round'/></svg>");
+}
+html.sketch.dark .w95-addbar .sk-underline {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' preserveAspectRatio='none'><path d='M1 3.6 C 20 2.2, 40 4.4, 60 3.2 S 100 1.8, 120 3.4 S 160 4.6, 180 2.8 S 195 2.4, 199 3.4' fill='none' stroke='%23ebe7db' stroke-width='1.4' stroke-linecap='round'/></svg>");
+}
+
 /* 선택된 항목: 종이색과 구별되게 형광펜으로 쓱 그은 듯한 밴드 + 왼쪽에 잉크 점 */
 html.sketch .sk-selected {
   background: rgba(29, 29, 27, 0.09) !important;

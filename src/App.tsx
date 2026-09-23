@@ -1630,7 +1630,7 @@ export default function App() {
     ]);
   };
 
-  // 할일 추가 줄. 기본/낙서 스킨은 목록 끝에, Win95 스킨은 패널 맨 아래에 고정
+  // 할일 추가 줄. 기본 스킨은 목록 끝에, 낙서/Win95 스킨은 패널 맨 아래에 고정
   const addTaskRow = (
         <div className="sk-addrow mt-1 flex items-center pl-6">
           <input
@@ -2370,7 +2370,7 @@ export default function App() {
                     </Group>
                   ))}
 
-                  {look !== "win95" && addTaskRow}
+                  {look === "default" && addTaskRow}
                 </Section>
               </>
             )}
@@ -2451,7 +2451,8 @@ export default function App() {
           </motion.div>
           </AnimatePresence>
           </div>
-          {look === "win95" && !settingsOpen && seg === "todo" && (
+          {/* Win95·낙서 스킨: 할일이 많아져도 입력줄이 안 밀리게 패널 하단 고정 */}
+          {look !== "default" && !settingsOpen && seg === "todo" && (
             <div className="w95-addbar">{addTaskRow}</div>
           )}
           </div>

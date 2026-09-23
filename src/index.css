@@ -680,17 +680,15 @@ html.win95 .w95-send {
   height: 100%;           /* 필드 안쪽 높이에 꽉 */
   flex: 0 0 auto;
   background: var(--w-face);
-  color: #000;
+  color: #000 !important;
   box-shadow: var(--bevel-out);
   cursor: pointer;
 }
 html.win95 .w95-send:active { box-shadow: var(--bevel-in); }
 html.win95 .w95-send:active svg { transform: translate(1px, 1px); }
-html.win95 .w95-send:disabled {
-  cursor: default;
-  color: var(--w-shadow);
-}
-html.win95 .w95-send:disabled svg { filter: drop-shadow(1px 1px 0 var(--w-light)); }
+/* 비어 있어도 화살표는 항상 검정 (Win95 콤보박스처럼). 클릭만 막힘 */
+html.win95 .w95-send:disabled { cursor: default; color: #000; }
+html.win95 .w95-send svg { width: 8px; height: 9px; }
 
 /* 스크롤바: 클래식 (트랙 체크무늬, 베벨 썸) */
 html.win95 .sk-scroll::-webkit-scrollbar { width: 16px; }

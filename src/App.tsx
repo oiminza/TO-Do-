@@ -24,6 +24,7 @@ declare global {
       pillReady: () => void;
       onPillOffset: (cb: (v: { left: number; top: number }) => void) => () => void;
       onPanelWindowReady: (cb: () => void) => () => void;
+      onOpenPanel: (cb: () => void) => () => void;
       pillSize: (w: number, h: number) => void;
       appVersion: () => Promise<string>;
       quitApp: () => void;
@@ -1299,6 +1300,15 @@ export default function App() {
     window.widget?.setMode("panel"); // main이 창을 패널 크기로 키운 뒤 신호를 보낸다
     if (!onboardedRef.current) window.widget?.centerWindow(true);
   };
+
+  // 메뉴 막대 아이콘에서 "열기" → 위젯 모드에서도 패널을 연다
+  useEffect(() => {
+    if (!isElectron) return;
+    return window.widget?.onOpenPanel(() => {
+      if (!openRef.current) openPanel();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 창이 패널 크기가 되면 그때 패널을 그린다 (작은 창에 그려서 잘리는 것 방지)
   useEffect(() => {

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const nodeIcal = require("node-ical");
@@ -435,9 +435,39 @@ function createTray() {
   tray = new Tray(icon);
   tray.setTitle(trayTitle, { fontType: "monospacedDigit" });
   tray.setToolTip("My Day");
+
+  // 좌클릭: 메뉴 막대 모드면 패널 열기/닫기, 위젯 모드면 패널 열기(위젯이 있는 자리에서)
   tray.on("click", () => {
-    if (win?.isVisible()) win.hide();
-    else showPanelUnderTray(true);
+    if (!win) return;
+    if (placement === "menubar") {
+      if (win.isVisible()) win.hide();
+      else showPanelUnderTray(true);
+    } else {
+      win.show();
+      win.webContents.send("open-panel");
+    }
+  });
+
+  // 우클릭: 종료 등 메뉴 — Dock 에 없는 앱이라 이곳이 유일한 "확실한 출구"
+  tray.on("right-click", () => {
+    const menu = Menu.buildFromTemplate([
+      {
+        label: placement === "menubar" ? "메뉴 막대에서 열기" : "위젯 열기",
+        click: () => {
+          if (!win) return;
+          if (placement === "menubar") showPanelUnderTray(true);
+          else {
+            win.show();
+            win.webContents.send("open-panel");
+          }
+        },
+      },
+      { type: "separator" },
+      { label: `My Day ${app.getVersion()}`, enabled: false },
+      { type: "separator" },
+      { label: "My Day 종료", accelerator: "Cmd+Q", click: () => app.quit() },
+    ]);
+    tray.popUpContextMenu(menu);
   });
 }
 
@@ -454,7 +484,7 @@ function applyPlacement() {
     win.hide();
     place(menubarBounds());
   } else {
-    destroyTray();
+    createTray(); // 위젯 모드에서도 메뉴 막대 아이콘은 유지 (종료 메뉴 진입점)
     // 패널이 작은 창에 짜부라지는 순간이 보이지 않게: 숨기고 → 크기 변경 → 렌더러가 위젯 모드로 그린 뒤 표시
     win.hide();
     place(homeBounds());
@@ -560,6 +590,7 @@ ipcMain.on("move-by", (_e, dx, dy) => {
 
 app.whenReady().then(() => {
   app.dock?.hide();
+  createTray();
   createWindow();
 });
 

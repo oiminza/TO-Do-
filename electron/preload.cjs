@@ -35,6 +35,11 @@ contextBridge.exposeInMainWorld("widget", {
     ipcRenderer.on("pill-offset", handler);
     return () => ipcRenderer.removeListener("pill-offset", handler);
   },
+  onOpenPanel: (cb) => {
+    const handler = () => cb();
+    ipcRenderer.on("open-panel", handler);
+    return () => ipcRenderer.removeListener("open-panel", handler);
+  },
   onPanelWindowReady: (cb) => {
     const handler = () => cb();
     ipcRenderer.on("panel-window-ready", handler);

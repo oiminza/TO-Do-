@@ -498,6 +498,16 @@ html.win95 .sk-panel > .h-full {
   z-index: 1;
 }
 html.win95 .sk-panel > .h-full > .sk-scroll { padding-left: 12px !important; padding-right: 12px !important; }
+/* 설정 화면: 흰 리스트박스 없이 회색 페이지 그대로 */
+html.win95 .sk-panel > .sk-scroll.sk-settings {
+  background: var(--w-face);
+  /* 탭 줄이 없으니 윗선까지 포함한 튀어나온 베벨 */
+  box-shadow: -1px -1px 0 var(--w-hilite), -2px -2px 0 var(--w-light), 1px 1px 0 var(--w-shadow), 2px 2px 0 var(--w-dark);
+  margin-top: 4px;
+  border-width: 6px 10px 10px;
+  padding: 6px 4px 8px !important;
+}
+html.win95 .sk-settings section > p { color: #000 !important; padding-left: 2px; }
 /* 설정 화면 '돌아가기' 줄은 탭 대신 메뉴 항목처럼 */
 html.win95 .sk-panel > .px-4 > button { border-radius: 0 !important; padding: 2px 6px !important; font-size: 12px; color: #000 !important; }
 
@@ -596,11 +606,23 @@ html.win95 .sk-selected * { color: #fff !important; }
 /* 버튼류·카드: 3D 회색 버튼 / 들어간 그룹 박스 */
 html.win95 .sk-box {
   border-radius: 0 !important;
-  border-color: transparent !important;
+  border: 0 !important; /* 원래 스킨의 1px 테두리 제거 — 베벨 바깥에 선이 비치는 것 방지 */
   background: var(--w-face) !important;
   box-shadow: var(--bevel-out) !important;
 }
-html.win95 .sk-box.shadow-lg { box-shadow: var(--bevel-out), 3px 3px 0 rgba(0, 0, 0, 0.35) !important; }
+/* 드롭다운 메뉴: Win95 메뉴 — 베벨만, 그림자 없음. 항목 hover는 남색+흰 글씨 */
+html.win95 .sk-box.shadow-lg {
+  box-shadow: var(--bevel-out) !important;
+  padding: 3px !important;
+  margin-top: 2px !important;
+}
+html.win95 .sk-box.shadow-lg li > button { border-radius: 0; padding: 3px 8px 4px !important; }
+html.win95 .sk-box.shadow-lg li > button:hover { background: var(--w-select) !important; color: #fff !important; }
+html.win95 .sk-box.shadow-lg li > button:hover * { color: #fff !important; }
+html.win95 .sk-box.shadow-lg li > button.font-bold { font-weight: 400 !important; }
+/* 드롭다운 트리거: 눌리면 들어감, hover 색 변화 없음 */
+html.win95 button.sk-box:hover { background: var(--w-face) !important; }
+html.win95 button.sk-box:active { box-shadow: var(--bevel-in) !important; }
 html.win95 .divide-y > :not(:first-child) { border-top: 1px solid var(--w-shadow) !important; box-shadow: 0 1px 0 var(--w-light) inset; }
 html.win95 .rounded-lg, html.win95 .rounded-xl, html.win95 .rounded-2xl, html.win95 .rounded-full { border-radius: 0 !important; }
 html.win95 .bg-foreground { background: var(--w-face) !important; color: #000 !important; box-shadow: var(--bevel-out); }

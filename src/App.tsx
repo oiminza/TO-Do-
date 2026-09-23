@@ -1988,7 +1988,7 @@ export default function App() {
           )}
 
           {/* 본문 — 탭/설정 전환 시 내용이 아래에서 위로 떠오름 */}
-          <div className="sk-scroll flex-1 overflow-y-auto px-5 pb-5">
+          <div className={`sk-scroll flex-1 overflow-y-auto px-5 pb-5 ${settingsOpen ? "sk-settings" : ""}`}>
           <AnimatePresence initial={false} mode="popLayout">
           <motion.div
             key={settingsOpen ? "settings" : seg}

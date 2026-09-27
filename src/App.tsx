@@ -1150,7 +1150,7 @@ function PixelSectionIcon({ kind }: { kind: "calendar" | "tasks" }) {
   return (
     <img
       className="w95-section-icon"
-      src={kind === "calendar" ? "/schedule-calendar.png" : "/task-notepad.png"}
+      src={`${import.meta.env.BASE_URL}${kind === "calendar" ? "schedule-calendar.png" : "task-notepad.png"}`}
       width="24"
       height="24"
       alt=""

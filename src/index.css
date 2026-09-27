@@ -78,6 +78,14 @@ body {
   animation: scribble 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
+/* 온보딩: Tasks 목록과 추가 입력창만 간결하게 보여준다. */
+.task-demo { height: 188px; flex-shrink: 0; }
+.task-demo-preview { padding: 6px 14px 0; }
+/* 안내 그래프는 바깥 박스 없이 기존 Done 그래프만 보여준다. */
+html.sketch .stats-demo .sk-box { border: 0; margin-bottom: 0; }
+html.sketch .stats-demo .sk-box::before { display: none; }
+
+
 /* ─── 낙서 스킨 (html.sketch) — 종이 위 펜글씨, 박스는 거의 없이 ───────── */
 html.sketch {
   --paper: #ffffff;
@@ -471,6 +479,12 @@ html.win95 [data-slot="tabs-tab"] {
 }
 
 /* ── 바깥 창: 각진 회색 창 + 베벨 ── */
+.w95-section-icon { display: none; }
+html.win95 .sk-section-arrow { display: none; }
+html.win95 .sk-section-toggle { gap: 6px; padding-left: 0; border-radius: 0; }
+html.win95 .w95-section-icon { display: block; flex: 0 0 24px; }
+html.win95 img.w95-section-icon { object-fit: contain; image-rendering: pixelated; }
+
 html.win95 .sk-outer {
   border-radius: 0 !important;
   background: var(--w-face);
@@ -543,7 +557,8 @@ html.win95 .sk-panel > .h-full {
   z-index: 1;
 }
 html.win95 .sk-panel > .h-full > .sk-scroll { padding-left: 12px !important; padding-right: 12px !important; }
-html.win95 .sk-panel > .sk-body > .sk-scroll { padding: 0 6px !important; min-height: 0; }
+html.win95 .sk-panel > .sk-body > .sk-scroll-frame > .sk-scroll { padding: 0 6px !important; min-height: 0; }
+.sk-scroll-frame > .sk-scroll { min-width: 0; }
 /* 설정 화면: 흰 리스트박스 없이 회색 페이지 그대로 */
 html.win95 .sk-panel > .sk-body.sk-settings {
   background: var(--w-face);
@@ -750,6 +765,55 @@ html.win95 .sk-scroll::-webkit-scrollbar-button:single-button {
   box-shadow: var(--bevel-out);
   height: 16px;
 }
+/* 본문은 실제 버튼이 붙은 스크롤바를 사용한다. 온보딩은 기존 스크롤바를 유지한다. */
+html.win95 .sk-body .sk-scroll { scrollbar-width: none; }
+html.win95 .sk-body .sk-scroll::-webkit-scrollbar { display: none; }
+html.win95 .w95-scrollbar {
+  display: flex;
+  flex: 0 0 16px;
+  flex-direction: column;
+  width: 16px;
+  min-height: 0;
+  margin-left: 2px;
+  background: var(--w-face);
+  color: #000;
+}
+html.win95 .w95-scroll-button {
+  display: grid;
+  flex: 0 0 16px;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--w-face);
+  box-shadow: var(--bevel-out);
+  cursor: pointer;
+  z-index: 1;
+}
+html.win95 .w95-scroll-button:active { box-shadow: var(--bevel-in); }
+html.win95 .w95-scroll-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  background-color: var(--w-face);
+  background-image: linear-gradient(45deg, var(--w-light) 25%, transparent 25%, transparent 75%, var(--w-light) 75%),
+    linear-gradient(45deg, var(--w-light) 25%, transparent 25%, transparent 75%, var(--w-light) 75%);
+  background-size: 2px 2px;
+  background-position: 0 0, 1px 1px;
+  box-shadow: inset 1px 1px var(--w-shadow), inset -1px -1px var(--w-light);
+}
+html.win95 .w95-scroll-thumb {
+  position: absolute;
+  left: 0;
+  width: 16px;
+  background: var(--w-face);
+  box-shadow: var(--bevel-out);
+  cursor: grab;
+  touch-action: none;
+}
+html.win95 .w95-scroll-thumb:active { box-shadow: var(--bevel-in); cursor: grabbing; }
 
 /* 그래프: 계단식 픽셀 선 */
 html.win95 .sk-line { filter: none; stroke-width: 2; shape-rendering: crispEdges; }
@@ -774,3 +838,48 @@ html.win95 .sk-pill > span:last-child { color: #444 !important; font-size: 12px 
 /* 완료 취소선은 굵게(픽셀) */
 html.win95 .line-through { text-decoration-thickness: 2px; }
 html.win95 .animate-strike { filter: none; height: 2px !important; }
+
+/* 실제 화면이 보이도록 패널 아래쪽에 작게 띄우는 스킨 선택 창. */
+.skin-picker {
+  position: fixed;
+  inset: auto 0 max(16px, calc((100dvh - 600px) / 2 + 24px));
+  margin: 0 auto;
+  width: min(320px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 14px 16px;
+  border: 1.5px solid #1d1d1b;
+  border-radius: 18px 16px 19px 15px;
+  background: #fff;
+  color: #1d1d1b;
+  font-family: "Patrick Hand", "Poor Story", sans-serif;
+  font-size: 14px;
+  text-align: center;
+  box-shadow: 0 4px 18px #0002;
+  -webkit-font-smoothing: antialiased;
+}
+.skin-picker::backdrop { background: transparent; }
+.skin-picker[open] {
+  animation: skin-picker-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
+}
+@keyframes skin-picker-rise {
+  from {
+    transform: translateY(calc(100% + max(16px, (100dvh - 600px) / 2 + 24px)));
+    opacity: 0;
+  }
+  to { transform: translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skin-picker[open] { animation: none; }
+}
+.skin-picker-eyebrow { margin-bottom: 2px; font-size: 12px; }
+.skin-picker h1 { font-size: 20px; line-height: 1.3; }
+#skin-picker-description { margin-top: 4px; font-size: 12px; color: #77756e; }
+.skin-picker-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.skin-picker-option { min-width: 0; height: 36px; padding: 0 12px; border: 1.5px solid #ddd; border-radius: 9px; background: #fff; cursor: pointer; }
+.skin-picker-option[aria-pressed="true"] { border-color: #1d1d1b; background: #f2f2ef; box-shadow: 0 0 0 .5px #1d1d1b; }
+.skin-picker-option:hover { border-color: #1d1d1b; }
+.skin-picker-label { display: flex; align-items: center; justify-content: space-between; font-size: 15px; }
+.skin-picker-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.skin-picker-confirm { flex-shrink: 0; height: 34px; padding: 0 12px; border-radius: 9px; background: #1d1d1b; color: #fff; font-size: 13px; cursor: pointer; }
+.skin-picker button:focus-visible { outline: 2px solid #1d1d1b; outline-offset: 3px; }

@@ -1,4 +1,6 @@
-# My Day — Claude 작업 가이드
+# Tody — 작업 가이드
+
+> 최신 변경사항과 회사 컴퓨터에서의 실행 방법은 [HANDOFF.md](HANDOFF.md)를 먼저 읽어주세요. 아래 초기 메모보다 최신 안내가 우선합니다.
 
 macOS 메뉴바/플로팅 **투두 + 오늘 일정 위젯**. Electron + React(Vite) + Tailwind + HeroUI.
 사용자는 **프로덕트 디자이너(비개발자)** — 기술 용어는 쉬운 말로 풀어서 설명하고, 변경 후엔 항상 스크린샷/미리보기로 확인할 수 있게 안내한다.
@@ -11,7 +13,7 @@ npm run dev        # 브라우저 미리보기 http://localhost:5173 (Electron �
 npm run dist       # macOS dmg 빌드 → release/
 ```
 - 브라우저 미리보기에선 알약(접기)·✕·구글 로그인·창 이동 등 Electron 기능은 안 보인다. UI/CSS 작업은 미리보기로 충분.
-- 스킨 전환: ⚙ 설정 → 스킨 (기본 / 낙서 / Win95). `localStorage["my-day-look"]`.
+- 스킨 전환: ⚙ 설정 → 스킨 (낙서 / 윈도우). `localStorage["my-day-look"]`.
 - 온보딩 강제: `.env.local`에 `VITE_DEV_FORCE_NEW_USER=true`.
 
 ## 브랜치
@@ -60,7 +62,7 @@ npm run dist       # macOS dmg 빌드 → release/
 ## 낙서 스킨 최근 변경 (skin/win95에 포함)
 
 - Add task 하단 고정 + 손그림 네모 상자(40px) + 오른쪽 손글씨 "추가" 버튼
-- 기본 스킨은 아직 목록 끝 인라인 (하단 고정 통일은 미정)
+- 기본 스킨은 제거했고 낙서 / 윈도우만 선택할 수 있음
 
 ## 공통 최근 변경
 
@@ -70,7 +72,6 @@ npm run dist       # macOS dmg 빌드 → release/
 ## 남은 아이디어 / TODO
 
 - Win95: 온보딩 화면·Done 그래프 톤 점검, ⚙ 아이콘 픽셀화, 알약 모양
-- 기본 스킨 Add task도 하단 고정으로 통일할지
 - `skin/win95` → `main` 머지 후 v0.1.9 릴리즈
 
 ## 작업 규칙

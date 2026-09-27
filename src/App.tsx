@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs } from "@heroui/react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 declare global {
   interface Window {
@@ -64,7 +64,6 @@ interface Task {
   title: string;
   status: Status;
   flag: boolean;
-  time?: string;
   created: string;
   doneAt?: string;
   group?: string;
@@ -99,7 +98,7 @@ const nowHM = () => {
 
 // 바우저 미리보기(개발) 전용 샘플 할일 — 실제 앱의 신규 사용자는 뱈 목록으로 시작한다
 const SEED: Task[] = [
-  { id: uid(), title: "프로젝트 기획서 초안 작성", status: "todo", flag: true, time: "15:00", created: today() },
+  { id: uid(), title: "프로젝트 기획서 초안 작성", status: "todo", flag: true, created: today() },
   { id: uid(), title: "디자인 리서치 정리", status: "todo", flag: false, created: today() },
   { id: uid(), title: "운동 30분", status: "todo", flag: false, created: today() },
   { id: uid(), title: "포트폴리오 업데이트", status: "later", flag: false, created: today() },
@@ -121,9 +120,9 @@ function load(): Task[] {
 type StrikeStyle = "line" | "scribble";
 const StrikeCtx = createContext<StrikeStyle>("line");
 
-// ─── 스킨 (기본 / 낙서) ───────────────────────────────
+// ─── 스킨 (낙서 / 윈도우) ───────────────────────────────
 // 낙서: 종이 배경 + 손글씨 + 샐뻗한 테두리/선 + 노란 형광펜 탭. <html class="sketch">로 켜짐
-type Look = "default" | "sketch" | "win95";
+type Look = "sketch" | "win95";
 
 type GoogleStatus = { signedIn: boolean; email: string; clientConfigured: boolean };
 
@@ -136,10 +135,8 @@ type UpdateInfo =
 const WEB_VERSION = "dev";
 const loadLook = (): Look => {
   const v = localStorage.getItem("my-day-look");
-  if (v === "default" || v === "sketch" || v === "win95") return v;
-  // 예전 '완료 표시: 낙서' 설정을 쓰던 사용자는 낙서 스킨으로 이어감
-  // 예전 '완료 표시: 직선' 설정을 쓰던 사용자만 기본 스킨 유지, 그 외 신규는 낙서가 기본
-  return localStorage.getItem("my-day-strike") === "line" ? "default" : "sketch";
+  // 기존 기본 스킨과 신규 사용자는 낙서 스킨으로 시작한다.
+  return v === "win95" ? "win95" : "sketch";
 };
 const applyLook = (l: Look) => {
   document.documentElement.classList.toggle("sketch", l === "sketch");
@@ -434,7 +431,8 @@ function doneSummary(tasks: Task[], days = 14) {
 }
 
 // ─── Done 분석: 하루별 완료 개수 공선 그래프 (최근 14일) ────────
-function DoneChart({ tasks }: { tasks: Task[] }) {
+function DoneChart({ tasks, highlightDay, drawDuration = 0.9, showTodayMarker = true }: { tasks: Task[]; highlightDay?: number | null; drawDuration?: number; showTodayMarker?: boolean }) {
+  const reducedMotion = useReducedMotion();
   const DAYS = 14;
   const days = Array.from({ length: DAYS }, (_, i) => {
     const d = new Date();
@@ -481,7 +479,8 @@ function DoneChart({ tasks }: { tasks: Task[] }) {
     return `${+m}/${+d}`;
   };
 
-  const [hover, setHover] = useState<number | null>(null);
+  const [pointerHover, setHover] = useState<number | null>(null);
+  const hover = highlightDay === undefined ? pointerHover : highlightDay;
 
   return (
     <div className="sk-box mb-4 rounded-2xl border border-black/6 px-2 pb-1 pt-2 dark:border-white/8">
@@ -491,7 +490,7 @@ function DoneChart({ tasks }: { tasks: Task[] }) {
         onMouseLeave={() => setHover(null)}
       >
         <defs>
-          {/* 낙서 스킨용 손그림 뿠금 (기본 스킨에서는 사용 안 함) */}
+          {/* 낙서 스킨용 손그림 뿠금 */}
           <pattern id="doneHatch" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)">
             <line x1="0" y1="0" x2="0" y2="7" stroke="currentColor" strokeWidth="0.9" strokeOpacity="0.28" strokeLinecap="round" />
             <line x1="3.6" y1="1" x2="3.4" y2="6.2" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.14" strokeLinecap="round" />
@@ -530,21 +529,21 @@ function DoneChart({ tasks }: { tasks: Task[] }) {
         <motion.path
           className="sk-area"
           d={area} fill="url(#doneArea)"
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.4 }}
+          initial={{ opacity: reducedMotion ? 1 : 0 }} animate={{ opacity: 1 }} transition={{ delay: reducedMotion ? 0 : drawDuration * 0.55, duration: reducedMotion ? 0 : 0.4 }}
         />
         <motion.path
           d={line} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="sk-line"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
-          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ pathLength: reducedMotion ? 1 : 0 }} animate={{ pathLength: 1 }}
+          transition={{ duration: reducedMotion ? 0 : drawDuration, ease: [0.22, 1, 0.36, 1] }}
         />
 
         {/* 오늘 점 */}
-        <motion.circle
+        {showTodayMarker && <motion.circle
           cx={x(DAYS - 1)} cy={y(counts[DAYS - 1])} r={3.5}
           fill="currentColor"
-          initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.85, duration: 0.25 }}
+          initial={{ scale: reducedMotion ? 1 : 0, opacity: reducedMotion ? 1 : 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: reducedMotion ? 0 : drawDuration - 0.05, duration: reducedMotion ? 0 : 0.25 }}
           style={{ originX: `${x(DAYS - 1)}px`, originY: `${y(counts[DAYS - 1])}px` }}
-        />
+        />}
 
         {/* hover: 세로선 + 점 + 라벨 */}
         {hover !== null && (
@@ -603,131 +602,275 @@ function GoogleG() {
   );
 }
 
-// ─── 스킨 미리보기 (온보딩용 미니 위젯) ─────────────────────────────
-// 스킨 클래스(html.sketch)에 의존하지 않고 인라인으로 그려서, 어떤 스킨이 켜져 있어도 두 카드가 각자 모습을 유지한다
-function SkinPreviewDefault() {
+function TactileStartButton({ onClick }: { onClick: () => void }) {
+  const [pressed, setPressed] = useState(false);
+  const reducedMotion = useReducedMotion();
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onClickRef = useRef(onClick);
+  onClickRef.current = onClick;
+
+  useEffect(() => {
+    const release = () => setPressed(false);
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    window.addEventListener("blur", release);
+    return () => {
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+      window.removeEventListener("blur", release);
+      if (advanceTimer.current !== null) window.clearTimeout(advanceTimer.current);
+    };
+  }, []);
+
   return (
-    <div className="h-[118px] w-full overflow-hidden rounded-xl bg-[#e9e9ec] p-2 font-mono" aria-hidden>
-      <div className="h-full rounded-[10px] bg-white p-2 shadow-sm">
-        <div className="flex rounded-full bg-[#f2f2f4] p-[2px] text-[7px] text-[#555]">
-          <span className="flex-1 rounded-full bg-white py-[3px] text-center text-black shadow-sm">To-do</span>
-          <span className="flex-1 py-[3px] text-center">Later</span>
-          <span className="flex-1 py-[3px] text-center">Done</span>
-        </div>
-        <div className="mt-2 space-y-[6px] px-0.5 text-[8px] text-black">
-          <div className="flex items-center gap-1.5">
-            <span className="h-[8px] w-[8px] rounded-full bg-black" />
-            <span className="text-[#8a8a8e] line-through">리서치 정리</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="h-[8px] w-[8px] rounded-full border border-[#c9c9ce]" />
-            <span>주간 미팅 준비</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="h-[8px] w-[8px] rounded-full border border-[#c9c9ce]" />
-            <span>디자인 QA</span>
-          </div>
+    <span className="relative inline-flex w-full">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: "#000",
+          borderRadius: "12px 13px 11px 12px / 11px 12px 13px 10px",
+          transform: "translate(-1px, 4px)",
+        }}
+      />
+      <motion.button
+        type="button"
+        onPointerDown={() => setPressed(true)}
+        onPointerLeave={() => setPressed(false)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") setPressed(true);
+        }}
+        onKeyUp={() => setPressed(false)}
+        onBlur={() => setPressed(false)}
+        onClick={() => {
+          if (advanceTimer.current !== null) return;
+          advanceTimer.current = window.setTimeout(() => {
+            advanceTimer.current = null;
+            onClickRef.current();
+          }, reducedMotion ? 0 : 180);
+        }}
+        animate={{ x: pressed ? -1 : 0, y: pressed ? 4 : 0 }}
+        transition={reducedMotion
+          ? { duration: 0 }
+          : pressed
+            ? { type: "tween", ease: "easeOut", duration: 0.05 }
+            : { type: "spring", stiffness: 800, damping: 60, mass: 1 }}
+        style={{ color: "#000" }}
+        className="group relative h-[46px] w-full cursor-pointer px-6 text-[16px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+      >
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+          viewBox="0 0 284 52"
+          preserveAspectRatio="none"
+        >
+          <path
+            d="M13 1.5 C78 0.8 192 1.9 271 1.3 C279 1.1 283 6.2 283 14 L282.7 38 C283.1 46.5 278.5 50.8 271 50.5 C194 51.2 82 50.1 13 50.7 C5.4 50.5 1.4 46 1.2 38 L1.5 14 C1.1 6.4 5.2 1.8 13 1.5 Z"
+            className="fill-white transition-colors duration-150 group-hover:fill-[#e6e6e6]"
+            stroke="#000"
+            strokeWidth="1.3"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+            filter="url(#sketchy)"
+          />
+        </svg>
+        <span className="relative">시작하기</span>
+      </motion.button>
+    </span>
+  );
+}
+
+// 실제 Section/TaskRow 스타일로 일정과 할 일을 함께 보여주는 온보딩 예시.
+function OverviewOnboardingDemo() {
+  const reducedMotion = useReducedMotion();
+  const reveal = (delay: number) => ({
+    initial: reducedMotion ? false as const : { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: reducedMotion ? 0 : 0.45, delay: reducedMotion ? 0 : delay, ease: "easeOut" as const },
+  });
+  return (
+    <div className="flex flex-1 flex-col justify-center pb-3">
+      <div role="img" aria-label="Schedule에 오전 11시 데일리 스탠업과 오후 7시 지원이와 저녁약속, Tasks에 디자인 레퍼런스 모으기와 시안 정리하기가 함께 보이는 예시">
+        <div inert aria-hidden="true" className="task-demo-preview pointer-events-none">
+          <motion.div className="flow-root" {...reveal(0.1)}>
+          <Section title="Schedule">
+            {[
+              { start: "11:00", name: "데일리 스탠업" },
+              { start: "19:00", name: "지원이와 저녁약속" },
+            ].map((event, i) => (
+              <motion.div key={event.start} {...reveal(0.35 + i * 0.2)} className="flex items-baseline gap-3 py-[7px] pl-1.5 pr-1">
+                <span className="w-9 flex-shrink-0 font-mono text-[12px] text-muted">{event.start}</span>
+                <span className="min-w-0 flex-1 text-[13.5px] text-foreground">{event.name}</span>
+              </motion.div>
+            ))}
+          </Section>
+          </motion.div>
+          <motion.div className="flow-root" {...reveal(0.75)}>
+          <Section title="Tasks">
+            {["디자인 레퍼런스 모으기", "시안 정리하기"].map((title, i) => (
+              <motion.div key={title} {...reveal(1 + i * 0.2)}>
+                <TaskRow task={{ id: `overview-task-${i}`, title, status: "todo", flag: false, created: today() }} onUpdate={() => {}} />
+              </motion.div>
+            ))}
+          </Section>
+          </motion.div>
         </div>
       </div>
     </div>
   );
 }
 
-function SkinPreviewWin95() {
-  const bevelOut = "inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf";
-  const bevelIn = "inset 1px 1px #808080, inset -1px -1px #fff, inset 2px 2px #000, inset -2px -2px #dfdfdf";
+function GroupOnboardingDemo() {
+  const reducedMotion = useReducedMotion();
+  const [cycle, setCycle] = useState(0);
+  const [frame, setFrame] = useState({ phase: 0, name: "" });
+  const phase = reducedMotion ? 6 : frame.phase;
+  const groupName = "디자인 시스템";
+  const titles = ["디자인 시스템 문서 정리하기", "디자인 시스템 변경사항 공유하기"];
+
+  useEffect(() => {
+    if (reducedMotion) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const at = (ms: number, phase: number, name = "") => {
+      timers.push(setTimeout(() => setFrame({ phase, name }), ms));
+    };
+    at(0, 0);
+    at(700, 1);
+    at(1400, 2); // 첫 줄에서 마우스를 누른 채 잠깐 멈춘다.
+    at(1600, 3); // 누른 뒤 200ms 쉬고 아래로 0.6초 동안 드래그한다.
+    at(2300, 4); // 두 번째 줄에 도착한 뒤 함께 선택하고 이름을 입력한다.
+    Array.from(groupName).forEach((_, i) => at(2900 + i * 200, 4, groupName.slice(0, i + 1)));
+    at(5000, 5, groupName);
+    at(5900, 6, groupName);
+    // 목록 퇴장(200ms)과 그룹 등장(350ms)이 끝난 뒤 2초 쉬고 반복한다.
+    timers.push(setTimeout(() => setCycle(v => v + 1), 5900 + 200 + 350 + 2000));
+    return () => timers.forEach(clearTimeout);
+  }, [reducedMotion, cycle]);
+
+  const rows = (grouped: boolean) => titles.map((title, i) => (
+    <TaskRow
+      key={title}
+      task={{ id: `onboarding-group-${i}`, title: grouped ? title.slice(groupName.length + 1) : title, status: "todo", flag: false, created: today() }}
+      selected={!grouped && phase >= (i === 0 ? 2 : 4)}
+      onUpdate={() => {}}
+    />
+  ));
+
   return (
-    <div
-      className="h-[118px] w-full overflow-hidden bg-[#008080] p-2"
-      style={{ fontFamily: '"Galmuri11", "Pretendard Variable", sans-serif' }}
-      aria-hidden
-    >
-      <div className="h-full bg-[#c0c0c0] p-[3px]" style={{ boxShadow: bevelOut }}>
-        <div className="flex h-[14px] items-center justify-between bg-[linear-gradient(90deg,#000080,#1084d0)] px-1 text-[8px] font-bold text-white">
-          <span>My Day</span>
-          <span className="flex h-[10px] w-[11px] items-center justify-center bg-[#c0c0c0] text-[8px] font-bold text-black" style={{ boxShadow: bevelOut }}>×</span>
+    <div className="flex flex-1 flex-col justify-center pb-3">
+      <div className="task-demo relative" role="img" aria-label="디자인 시스템 문서 정리하기와 디자인 시스템 변경사항 공유하기를 드래그해 선택하고 디자인 시스템 그룹으로 묶는 예시">
+        <div inert aria-hidden="true" className="task-demo-preview pointer-events-none">
+          <Section title="Tasks">
+            <AnimatePresence mode="wait" initial={false}>
+              {phase < 6 ? (
+                <motion.div key="separate" exit={{ opacity: 0, y: -4 }} transition={{ duration: reducedMotion ? 0 : 0.2 }}>
+                  {rows(false)}
+                  {phase >= 4 && (
+                    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="my-1.5 flex items-center gap-2 rounded-lg bg-background-secondary py-2 pl-6 pr-3">
+                      <span className="text-[13.5px] text-foreground">2 →</span>
+                      <input readOnly tabIndex={-1} value={frame.name} placeholder="Group name" className="sk-underline w-20 min-w-0 flex-1 border-b border-foreground bg-transparent font-mono text-[13.5px] text-foreground outline-none placeholder:text-muted" />
+                      <motion.span animate={{ scale: phase === 5 ? 0.9 : 1 }} className="text-[13px] text-foreground">group</motion.span>
+                      <span className="text-[13px] text-muted">✕</span>
+                    </motion.div>
+                  )}
+                </motion.div>
+              ) : (
+                <motion.div key="grouped" initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.35 }}>
+                  <Group name={groupName}>{rows(true)}</Group>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Section>
         </div>
-        <div className="mt-1.5 flex gap-[2px] text-[7px] text-black">
-          <span className="bg-[#c0c0c0] px-1.5 py-[1px]" style={{ boxShadow: bevelOut }}>To-do</span>
-          <span className="px-1.5 py-[1px] text-[#444]">Later</span>
-          <span className="px-1.5 py-[1px] text-[#444]">Done</span>
+        {!reducedMotion && phase > 0 && phase < 6 && (
+          <motion.svg aria-hidden="true" width="22" height="28" viewBox="0 0 22 28" className="pointer-events-none absolute z-10 overflow-visible text-foreground" initial={{ left: 90, top: 40, opacity: 0 }} animate={{ left: phase >= 5 ? 226 : 90, top: phase >= 5 ? 131 : phase >= 3 ? 96 : 64, opacity: 1, scale: phase === 2 || phase === 3 || phase === 5 ? 0.86 : 1 }} transition={{ duration: phase === 3 ? 0.6 : 0.5, ease: "easeInOut" }}>
+            {(phase === 2 || phase === 3) && <circle cx="2" cy="2" r="9" fill="currentColor" opacity="0.12" />}
+            <path d="M2 2 L3 22 L8 17 L12 26 L16 24 L12 16 L20 16 Z" fill="var(--paper)" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+          </motion.svg>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatsOnboardingDemo() {
+  const reducedMotion = useReducedMotion();
+  const [cycle, setCycle] = useState(0);
+  const [highlight, setHighlight] = useState<number | null>(null);
+  // 온보딩 전용 예시. 실제 완료 기록에는 저장하지 않는다.
+  const samples = useMemo(() => [2, 3, 1, 4, 2, 5, 3, 2, 6, 4, 8, 3, 5, 2].flatMap((count, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (13 - i));
+    const day = date.toLocaleDateString("sv");
+    return Array.from({ length: count }, (_, n): Task => ({ id: `stats-demo-${i}-${n}`, title: "완료 기록 예시", status: "done", flag: false, created: day, doneAt: day }));
+  }), []);
+
+  useEffect(() => {
+    if (reducedMotion) return;
+    const timers = [
+      setTimeout(() => setHighlight(null), 0),
+      setTimeout(() => setHighlight(2), 1600),
+      setTimeout(() => setHighlight(5), 2600),
+      setTimeout(() => setHighlight(10), 3600),
+      setTimeout(() => setCycle(v => v + 1), 5600),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [reducedMotion, cycle]);
+
+  const activeDay = reducedMotion ? 10 : highlight;
+  return (
+    <div className="flex flex-1 flex-col justify-center pb-3">
+      <div className="stats-demo" role="img" aria-label="최근 14일의 일별 완료 개수를 보여주는 예시 그래프. 가장 많이 완료한 날은 8개입니다.">
+        <div className="mb-2 flex items-center justify-between px-2">
+          <span className="text-[14px] text-foreground">완료 기록</span>
         </div>
-        <div className="mt-1.5 space-y-[5px] bg-white px-1.5 py-1.5 text-[8px] text-black" style={{ boxShadow: bevelIn }}>
-          <div className="flex items-center gap-1.5">
-            <span className="flex h-[9px] w-[9px] items-center justify-center bg-white text-[7px] leading-none" style={{ boxShadow: bevelIn }}>✓</span>
-            <span className="line-through">리서치 정리</span>
-          </div>
-          <div className="flex items-center gap-1.5 bg-[#000080] px-0.5 text-white">
-            <span className="h-[9px] w-[9px] bg-white" style={{ boxShadow: bevelIn }} />
-            <span>주간 미팅 준비</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="h-[9px] w-[9px] bg-white" style={{ boxShadow: bevelIn }} />
-            <span>디자인 QA</span>
-          </div>
+        <div inert aria-hidden="true" className="pointer-events-none">
+          <DoneChart key={cycle} tasks={samples} highlightDay={activeDay} drawDuration={1.6} showTodayMarker={false} />
         </div>
       </div>
     </div>
   );
 }
 
-function SkinPreviewSketch() {
-  const ink = "#1d1d1b";
+// 메인 화면을 보면서 고르는 첫 스킨 선택. dialog가 배경 입력과 포커스를 막는다.
+function SkinPickerModal({ look, onLook, onDone }: {
+  look: Look;
+  onLook: (look: Look) => void;
+  onDone: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+
   return (
-    <div
-      className="relative h-[118px] w-full overflow-hidden rounded-xl bg-white p-2"
-      style={{ fontFamily: '"Patrick Hand", "Poor Story", sans-serif', color: ink }}
-      aria-hidden
-    >
-      {/* 뜯긴 왼쪽 + 삐뚤한 테두리 */}
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 150 118" preserveAspectRatio="none">
-        <path
-          d="M12 8 C 40 6, 90 9, 142 8 L 143 110 C 100 112, 50 110, 12 111 L 12 100 C 6 98, 6 92, 12 90 L 12 78 C 6 76, 6 70, 12 68 L 12 56 C 6 54, 6 48, 12 46 L 12 34 C 6 32, 6 26, 12 24 Z"
-          fill="none"
-          stroke={ink}
-          strokeWidth="1.4"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <div className="relative pl-4 pr-2 pt-1.5">
-        <div className="flex justify-between px-1 text-[8.5px]" style={{ color: "#8b897f" }}>
-          <span className="relative" style={{ color: ink }}>
-            To-do
-            <svg className="absolute -left-[5px] -top-[3px] h-[16px] w-[30px]" viewBox="0 0 30 16" fill="none" stroke={ink} strokeWidth="1.1">
-              <path d="M19 2 C 11 1, 3 3, 2.5 8 C 2 12, 8 15, 15 14.5 C 22 14, 28 11, 27.5 7 C 27 4, 23 2, 18 2.3" />
-            </svg>
-          </span>
-          <span>Later</span>
-          <span>Done</span>
-        </div>
-        <div className="mt-2.5 space-y-[6px] text-[9px]">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block h-[9px] w-[9px] rounded-[50%_46%_52%_48%/48%_52%_46%_54%] border-[1.3px]" style={{ borderColor: ink, background: ink }} />
-            <span className="relative" style={{ color: "#8b897f" }}>
-              리서치 정리
-              <svg className="absolute left-0 top-1/2 h-[6px] w-full -translate-y-1/2" viewBox="0 0 60 6" preserveAspectRatio="none" fill="none" stroke={ink} strokeWidth="1.2">
-                <path d="M1 3 C 15 1, 30 5, 45 2.5 S 55 4, 59 3" />
-              </svg>
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block h-[9px] w-[9px] rotate-12 rounded-[55%_45%_47%_53%/47%_55%_45%_53%] border-[1.3px]" style={{ borderColor: ink }} />
-            <span>주간 미팅 준비</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block h-[9px] w-[9px] -rotate-6 rounded-[46%_54%_50%_50%/56%_46%_54%_44%] border-[1.3px]" style={{ borderColor: ink }} />
-            <span>디자인 QA</span>
-          </div>
-        </div>
+    <dialog ref={dialogRef} className="skin-picker" aria-labelledby="skin-picker-title" aria-describedby="skin-picker-description" onCancel={(event) => { event.preventDefault(); onDone(); }}>
+      <p className="skin-picker-eyebrow">잠깐!</p>
+      <h1 id="skin-picker-title">어떤 스킨이 더 좋으세요?</h1>
+      <p id="skin-picker-description">설정에서 언제든 바꿀 수 있어요.</p>
+      <div className="skin-picker-options">
+        {([
+          ["sketch", "낙서"],
+          ["win95", "윈도우"],
+        ] as const).map(([key, label]) => (
+          <button type="button" key={key} aria-pressed={look === key} className="skin-picker-option" onClick={() => onLook(key)}>
+            <span className="skin-picker-label">{label}<span aria-hidden="true">{look === key ? "✓" : ""}</span></span>
+          </button>
+        ))}
       </div>
-    </div>
+      <div className="skin-picker-footer">
+        <button type="button" className="skin-picker-confirm" onClick={onDone}>이걸로 할게요</button>
+      </div>
+    </dialog>
   );
 }
 
-// ─── 온보딩 화면: 환영 → 스킨 → 캘린더 → 시작 ─────────────────────
+// ─── 온보딩: 환영 → 할 일 → 그룹 → 완료 분석 → 캘린더 ───────
 function Onboarding({
-  look,
-  onLook,
+  step,
+  onStep,
   calConnected,
   googleEmail,
   googleBusy,
@@ -736,8 +879,8 @@ function Onboarding({
   onSaveIcs,
   onDone,
 }: {
-  look: Look;
-  onLook: (l: Look) => void;
+  step: number;
+  onStep: (step: number) => void;
   calConnected: boolean;
   googleEmail: string;
   googleBusy: boolean;
@@ -746,20 +889,41 @@ function Onboarding({
   onSaveIcs: (url: string) => Promise<void>;
   onDone: () => void;
 }) {
-  const [step, setStep] = useState(0);
   const [ics, setIcs] = useState("");
   const [saving, setSaving] = useState(false);
-  const [showIcs, setShowIcs] = useState(false);
-  const STEPS = 3;
-  const next = () => setStep((v) => Math.min(STEPS - 1, v + 1));
-  const back = () => setStep((v) => Math.max(0, v - 1));
+  const [icsError, setIcsError] = useState("");
+  const [welcomeCtaReady, setWelcomeCtaReady] = useState(false);
+  const STEPS = 5;
+  const isGuide = step >= 1 && step <= 3;
+  const next = () => onStep(Math.min(STEPS - 1, step + 1));
+  const back = () => {
+    if (step === 1) setWelcomeCtaReady(false);
+    onStep(Math.max(0, step - 1));
+  };
+  const reducedMotion = useReducedMotion();
+  // 영상이 재생되지 못해도 시작 버튼을 사용할 수 있도록 한다.
+  useEffect(() => {
+    if (step !== 0 || welcomeCtaReady || reducedMotion) return;
+    const fallback = setTimeout(() => setWelcomeCtaReady(true), 8000);
+    return () => clearTimeout(fallback);
+  }, [step, welcomeCtaReady, reducedMotion]);
   const icsValid = /^(https?|webcal):\/\//i.test(ics.trim());
+  const progress = (
+    <div className="mb-4 flex justify-center gap-1" aria-label={`온보딩 ${step} / ${STEPS - 1}`}>
+      {Array.from({ length: STEPS - 1 }).map((_, i) => (
+        <span key={i} className={`h-[3px] rounded-full ${i === step - 1 ? "w-5 bg-foreground" : "w-2.5 bg-foreground/20"}`} />
+      ))}
+    </div>
+  );
 
   const saveIcs = async () => {
-    if (!icsValid) return;
+    if (!icsValid || saving) return;
     setSaving(true);
+    setIcsError("");
     try {
       await onSaveIcs(ics.trim());
+    } catch {
+      setIcsError("연결하지 못했어요. 주소를 확인하고 다시 시도해주세요.");
     } finally {
       setSaving(false);
     }
@@ -774,188 +938,171 @@ function Onboarding({
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -16 }}
-          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: reducedMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
         >
-          {/* 1. 환영 — 일러스트 + 한 줄 */}
+          {/* 1. 환영 — 한 번 재생되는 소개 영상 + 한 줄 */}
           {step === 0 && (
-            <div className="flex flex-1 flex-col items-center justify-center text-center">
-              <img
-                src="./onboarding-hero.png"
-                alt=""
+            <div className="flex flex-1 flex-col items-center justify-center pb-3 text-center">
+              <video
+                src="./onboarding-welcome.mp4"
+                autoPlay
+                muted
+                playsInline
+                preload="auto"
+                onLoadedMetadata={(event) => {
+                  event.currentTarget.playbackRate = 2;
+                }}
+                onTimeUpdate={(event) => {
+                  const video = event.currentTarget;
+                  if (Number.isFinite(video.duration) && video.currentTime >= video.duration * 0.2) {
+                    setWelcomeCtaReady(true);
+                  }
+                }}
+                onEnded={() => setWelcomeCtaReady(true)}
+                onError={() => setWelcomeCtaReady(true)}
                 aria-hidden
-                draggable={false}
                 className="mb-3 w-[220px] select-none"
               />
               <h1 className="text-[22px] font-bold leading-snug text-foreground">
-                My Day에 오신 것을
+                Tody에 오신 것을
                 <br />
-                환영해요
+                환영해요.
               </h1>
-              <p className="mt-2 text-[14px] text-muted">업무 관리를 시작해볼까요?</p>
+              <p className="mt-2 text-[12px] text-muted">일정 관리를 시작해볼까요?</p>
             </div>
           )}
 
-          {/* 2. 스킨 */}
-          {step === 1 && (
-            <>
-              <h1 className="text-[20px] font-bold leading-snug text-foreground">어떤 느낌이 좋으세요?</h1>
-              <p className="mt-2 text-[13px] text-muted">설정에서 언제든 바꿀 수 있어요.</p>
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                {(
-                  [
-                    ["sketch", "낙서", "종이에 펜으로 그린"],
-                    ["default", "기본", "깔끔하고 차분한"],
-                    ["win95", "Win95", "그 시절 회색 창"],
-                  ] as const
-                ).map(([key, label, desc]) => {
-                  const on = look === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => onLook(key)}
-                      aria-pressed={on}
-                      className={`relative flex flex-col items-stretch gap-2.5 rounded-2xl border-2 p-2.5 text-left transition-colors ${
-                        on ? "border-foreground" : "border-black/10 hover:border-black/25 dark:border-white/12"
-                      }`}
-                    >
-                      {on && (
-                        <span className="absolute right-2 top-2 z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-foreground text-background ring-2 ring-surface">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <polyline points="4 12 10 18 20 6" />
-                          </svg>
-                        </span>
-                      )}
-                      {key === "sketch" ? <SkinPreviewSketch /> : key === "win95" ? <SkinPreviewWin95 /> : <SkinPreviewDefault />}
-                      <div className="px-1 pb-0.5">
-                        <p className="text-[13.5px] font-semibold text-foreground">{label}</p>
-                        <p className="text-[11.5px] text-muted">{desc}</p>
-                      </div>
-                    </button>
-                  );
-                })}
+          {/* 기능 안내 — 낙서 스킨의 실제 UI */}
+          {isGuide && (
+            <div className="flex min-h-full flex-col pb-10">
+              <button type="button" onClick={() => onStep(4)} className="self-end cursor-pointer py-1 text-[12px] text-muted hover:text-foreground">건너뛰기</button>
+              {step === 1 ? <OverviewOnboardingDemo /> : step === 2 ? <GroupOnboardingDemo /> : <StatsOnboardingDemo />}
+              <div className="mb-1 mt-3 text-center">
+                {progress}
+                <h1 className="text-[22px] leading-snug text-foreground">{step === 1 ? "일정과 할 일을 한눈에." : step === 2 ? "하나의 주제로 모아두기" : "가장 많이 해낸 날은?"}</h1>
+                <p className="mt-2 text-[12px] leading-relaxed text-muted">{step === 1 ? <>개인 약속부터 업무 일정까지,<br />한곳에서 관리해요.</> : step === 2 ? "드래그해서 고르고, 그룹으로 묶어요." : "하루 평균 몇 개의 할 일을 처리하는지 확인해요."}</p>
               </div>
-            </>
+            </div>
           )}
 
-          {/* 3. 구글 캘린더 연동 */}
-          {step === 2 && (
-            <>
-              <h1 className="text-[20px] font-bold leading-snug text-foreground">구글 캘린더 연동</h1>
-              <p className="mt-2 text-[13px] leading-relaxed text-muted">
-                오늘 일정이 할 일 위에 함께 보여요. 일정은 <b className="text-foreground">읽기만</b> 하고, 이 맥 밖으로 나가지 않습니다.
-              </p>
-
+          {/* 5. 스케줄 연동 — iCal 주소와 Google 계정 연결을 함께 표시 */}
+          {step === 4 && (
+            <div className="flex min-h-full flex-col pb-2">
+              <div className="text-center">
+                <h1 className="text-[22px] leading-snug text-foreground">스케줄 연동을 시작할게요</h1>
+                <p className="mt-2 text-[12px] leading-relaxed text-muted">iCal 주소나 Google 계정으로<br />오늘의 일정을 연결해요.</p>
+              </div>
               {calConnected ? (
-                <div className="mt-6">
-                  <div className="flex items-center gap-2 rounded-xl border border-foreground px-4 py-3 text-[13px] text-foreground">
+                <div className="flex flex-1 flex-col justify-center py-6">
+                  <div className="sk-box flex items-center justify-center gap-2 rounded-xl border border-foreground px-3 py-3 text-[13px] text-foreground">
                     <span aria-hidden>✓</span>
-                    <span className="min-w-0 truncate">
-                      연결되었어요{googleEmail ? ` · ${googleEmail}` : ""}
-                    </span>
+                    <span className="min-w-0 truncate">연결되었어요{googleEmail ? ` · ${googleEmail}` : ""}</span>
                   </div>
-                  <p className="mt-3 text-[11.5px] text-muted">오늘 일정을 바로 불러올게요.</p>
+                  <p className="mt-3 text-center text-[12px] text-muted">이제 일정과 할 일을 한곳에서 확인해요.</p>
                 </div>
               ) : (
-                <>
+                <div className="mt-5">
+                  <label htmlFor="onboarding-ical-url" className="block text-[14px] text-foreground">iCal 주소로 연결</label>
+                  <div className="mt-1 flex items-end gap-2">
+                    <input
+                      id="onboarding-ical-url"
+                      type="url"
+                      value={ics}
+                      onChange={(e) => { setIcs(e.target.value); setIcsError(""); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.nativeEvent.isComposing) saveIcs();
+                      }}
+                      placeholder="복사한 주소를 붙여넣어 주세요"
+                      autoComplete="off"
+                      spellCheck={false}
+                      aria-describedby="onboarding-ical-help"
+                      aria-invalid={icsError ? true : undefined}
+                      className="sk-underline h-11 min-w-0 flex-1 border-b border-foreground bg-transparent py-2 text-[12px] text-foreground outline-none placeholder:text-muted"
+                    />
+                    <button onClick={saveIcs} disabled={!icsValid || saving} className="h-11 shrink-0 cursor-pointer rounded-xl bg-foreground px-4 text-[14px] text-background disabled:cursor-default disabled:opacity-30">
+                      {saving ? "연결 중…" : "연결"}
+                    </button>
+                  </div>
+                  <p id="onboarding-ical-help" className="mt-2 text-[11.5px] text-muted">공개·비공개 iCal 구독 주소 모두 사용할 수 있어요.</p>
+                  {icsError && <p role="alert" className="mt-2 text-[12px] text-danger">{icsError}</p>}
+                  <details className="mt-3 text-[12px] text-muted">
+                    <summary className="cursor-pointer text-foreground">iCal 주소는 어디서 찾나요?</summary>
+                    <p className="mt-3 text-foreground">Google 캘린더</p>
+                    <ol className="mt-2 space-y-1.5 leading-relaxed">
+                      <li>1. 컴퓨터에서 Google 캘린더 → 설정</li>
+                      <li>2. 연결할 캘린더 선택 → 캘린더 통합</li>
+                      <li>3. iCal 형식의 비공개 주소를 복사해요.</li>
+                    </ol>
+                    <p className="mt-2 leading-relaxed">이미 공개된 캘린더라면 공개 iCal 주소도 사용할 수 있어요. 연동을 위해 캘린더를 공개로 바꿀 필요는 없어요.</p>
+                    <p className="mt-3 text-foreground">iCloud·다른 캘린더</p>
+                    <p className="mt-2 leading-relaxed">캘린더에서 제공하는 iCal 구독 주소(https:// 또는 webcal://)를 복사해요. iCloud는 캘린더 공유의 공개 캘린더 링크를 사용할 수 있어요.</p>
+                    <p className="mt-2 leading-relaxed">비공개 주소는 다른 사람에게 공유하지 마세요.</p>
+                  </details>
+                  <div className="my-5 flex items-center gap-3 text-[12px] text-muted" aria-hidden="true">
+                    <span className="h-px flex-1 bg-foreground/10" />또는<span className="h-px flex-1 bg-foreground/10" />
+                  </div>
                   <button
                     onClick={onGoogleSignIn}
                     disabled={googleBusy}
-                    className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl bg-foreground px-4 py-3 text-[13.5px] font-semibold text-background transition-opacity hover:opacity-85 disabled:cursor-default disabled:opacity-50"
+                    className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl bg-foreground px-4 py-3 text-[14px] text-background hover:opacity-85 disabled:cursor-default disabled:opacity-50"
                   >
                     <GoogleG />
                     {googleBusy ? "브라우저에서 허용을 눌러주세요…" : "Google 계정으로 연결"}
                   </button>
-                  {googleErr && <p className="mt-2 text-[12px] leading-relaxed text-danger">{googleErr}</p>}
-
-                  <ol className="mt-3.5 space-y-1.5 text-[11.5px] leading-relaxed text-foreground">
-                    {[
-                      <>브라우저가 열리면 <b>사용할 계정</b>을 선택해요 (회사 계정도 됩니다)</>,
-                      <><b>확인되지 않은 앱</b> 안내가 나오면 <b>고급</b> → <b>My Day(으)로 이동</b></>,
-                      <>캘린더 <b>보기 권한</b>을 <b>허용</b></>,
-                      <>브라우저에 <b>완료</b>가 보이면 이 창으로 돌아오세요</>,
-                    ].map((t, i) => (
-                      <li key={i} className="flex gap-2.5">
-                        <span className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-foreground text-[10.5px] font-bold text-background">
-                          {i + 1}
-                        </span>
-                        <span>{t}</span>
-                      </li>
-                    ))}
-                  </ol>
-
-                  <p className="mt-3 rounded-lg bg-background-secondary px-3 py-2 text-[11px] leading-relaxed text-muted">
-                    아직 테스트 중인 앱이라 <b className="text-foreground">미리 승인된 계정</b>만 연결할 수 있어요. 연결이 막히면 쓰시는 계정을 만든 사람에게 알려주세요.
-                  </p>
-
-                  <button
-                    onClick={() => setShowIcs((v) => !v)}
-                    className="mt-3 cursor-pointer text-left text-[12px] text-muted underline-offset-2 hover:text-foreground hover:underline"
-                  >
-                    {showIcs ? "▾" : "▸"} iCloud·iCal 주소도 함께 연결하기
-                  </button>
-                  {showIcs && (
-                    <div className="mt-3">
-                      <div className="flex items-end gap-2">
-                        <input
-                          value={ics}
-                          onChange={(e) => setIcs(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveIcs();
-                          }}
-                          placeholder="webcal://… 또는 https://…/basic.ics"
-                          className="sk-underline min-w-0 flex-1 border-b border-foreground bg-transparent py-2 font-mono text-[12px] text-foreground outline-none placeholder:text-muted"
-                        />
-                        <button
-                          onClick={saveIcs}
-                          disabled={!icsValid || saving}
-                          className="flex-shrink-0 cursor-pointer rounded-lg bg-foreground px-3.5 py-2 text-[12.5px] font-semibold text-background transition-opacity disabled:cursor-default disabled:opacity-30"
-                        >
-                          {saving ? "연결 중…" : "연결"}
-                        </button>
-                      </div>
-                      <p className="mt-2 text-[11px] leading-relaxed text-muted">
-                        iCloud: 캘린더 앱 → 공유 → <b>공개 캘린더</b> → 링크 복사 (webcal 주소 그대로 붙여도 돼요)
-                        <br />
-                        Google 계정 연결과 함께 쓰면 두 곳의 일정이 합쳐져 보여요.
-                      </p>
-                    </div>
-                  )}
-                </>
+                  <p className="mt-2 text-center text-[11.5px] text-muted">회사 계정이라면 Google 계정으로 연결해주세요.</p>
+                  {googleErr && <p role="alert" className="mt-2 text-[12px] text-danger">{googleErr}</p>}
+                  <details className="mt-3 text-[12px] text-muted">
+                    <summary className="cursor-pointer text-center hover:text-foreground">Google 연결 도움말</summary>
+                    <ol className="mt-3 space-y-1.5 text-[11.5px] leading-relaxed">
+                      <li>1. 브라우저에서 사용할 Google 계정을 선택해요.</li>
+                      <li>2. 확인되지 않은 앱 안내가 나오면 고급 → 앱으로 이동을 선택해요.</li>
+                      <li>3. 캘린더 보기 권한을 허용해요.</li>
+                      <li>4. 완료 안내가 보이면 Tody로 돌아오세요.</li>
+                    </ol>
+                    <p className="mt-3 text-[11.5px] leading-relaxed">아직 테스트 중이라 미리 승인된 계정만 연결할 수 있어요. 연결이 막히면 쓰시는 계정을 만든 사람에게 알려주세요.</p>
+                  </details>
+                </div>
               )}
-            </>
+              <div className="mt-auto pt-3">{progress}</div>
+            </div>
           )}
         </motion.div>
       </AnimatePresence>
 
       {/* 하단: 진행 점 + 버튼 */}
-      <div className="mt-4 flex flex-shrink-0 items-center justify-between px-6">
-        <div className="flex items-center gap-1.5" aria-label={`${step + 1} / ${STEPS}`}>
-          {Array.from({ length: STEPS }).map((_, i) => (
-            <span
-              key={i}
-              className={`h-[6px] rounded-full transition-[width,background-color] duration-200 ${
-                i === step ? "w-4 bg-foreground" : "w-[6px] bg-foreground/25"
-              }`}
-            />
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
+      <div className={`mt-4 flex flex-shrink-0 items-center px-6 ${step === 0 ? "flex-col gap-5" : "justify-between"}`}>
+        <div className="flex w-full items-center justify-between gap-2">
           {step > 0 && (
-            <button onClick={back} className="cursor-pointer rounded-lg px-3 py-2 text-[13px] text-muted hover:text-foreground">
-              이전
+            <button onClick={back} aria-label="이전" className="relative h-11 w-11 cursor-pointer text-[22px] text-foreground">
+                <svg aria-hidden="true" viewBox="0 0 44 44" className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" fill="none">
+                  <path d="M10 2 C18 1 28 2.5 35 1.8 Q42 2 42 10 L41.6 34 Q42 42 34 41.8 L10 42 Q2 42 2.2 34 L1.8 10 Q2 2 10 2 Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" filter="url(#sketchy)" />
+                </svg>
+              ←
             </button>
           )}
-          {step < STEPS - 1 ? (
+          {step === 0 ? (
+            <div className="h-[46px] w-full">
+              {(welcomeCtaReady || reducedMotion) && (
+                <motion.div
+                  initial={{ opacity: reducedMotion ? 1 : 0, y: reducedMotion ? 0 : 22 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: reducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <TactileStartButton onClick={next} />
+                </motion.div>
+              )}
+            </div>
+          ) : step < STEPS - 1 ? (
             <button
               onClick={next}
-              className="cursor-pointer rounded-xl bg-foreground px-4 py-2 text-[13px] font-semibold text-background hover:opacity-85"
+              className="h-11 w-[128px] cursor-pointer rounded-xl bg-foreground text-[15px] font-semibold text-background hover:opacity-85"
             >
-              {step === 0 ? "시작하기" : "다음"}
+              다음
             </button>
           ) : (
             <button
               onClick={onDone}
-              className="cursor-pointer rounded-xl bg-foreground px-4 py-2 text-[13px] font-semibold text-background hover:opacity-85"
+              className="h-11 w-[128px] cursor-pointer rounded-xl bg-foreground text-[15px] font-semibold text-background hover:opacity-85"
             >
               {calConnected ? "시작하기" : "나중에 하기"}
             </button>
@@ -999,6 +1146,125 @@ function Collapse({
 }
 
 // ─── 접을 수 있는 섹션 ────────────────────────────────
+function PixelSectionIcon({ kind }: { kind: "calendar" | "tasks" }) {
+  return (
+    <img
+      className="w95-section-icon"
+      src={kind === "calendar" ? "/schedule-calendar.png" : "/task-notepad.png"}
+      width="24"
+      height="24"
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      style={kind === "calendar" ? { transform: "scale(1.28)" } : undefined}
+    />
+  );
+}
+
+function ClassicScrollBar({
+  targetRef,
+  enabled,
+  watchKey,
+}: {
+  targetRef: React.RefObject<HTMLDivElement | null>;
+  enabled: boolean;
+  watchKey: string;
+}) {
+  const [metrics, setMetrics] = useState({ top: 0, height: 0, content: 0 });
+  const drag = useRef<{ pointerId: number; y: number; top: number } | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const el = targetRef.current;
+    if (!el) return;
+    const update = () => {
+      const next = { top: el.scrollTop, height: el.clientHeight, content: el.scrollHeight };
+      setMetrics((prev) =>
+        prev.top === next.top && prev.height === next.height && prev.content === next.content ? prev : next,
+      );
+    };
+    const resize = new ResizeObserver(update);
+    const observeChildren = () => {
+      for (const child of el.children) resize.observe(child);
+      update();
+    };
+    resize.observe(el);
+    const mutation = new MutationObserver(observeChildren);
+    mutation.observe(el, { childList: true });
+    el.addEventListener("scroll", update, { passive: true });
+    observeChildren();
+    return () => {
+      el.removeEventListener("scroll", update);
+      mutation.disconnect();
+      resize.disconnect();
+    };
+  }, [targetRef, enabled, watchKey]);
+
+  const maxScroll = Math.max(0, metrics.content - metrics.height);
+  if (!enabled || maxScroll <= 1) return null;
+  const trackHeight = Math.max(0, metrics.height - 32);
+  const thumbHeight = Math.min(trackHeight, Math.max(20, (trackHeight * metrics.height) / metrics.content));
+  const thumbRange = Math.max(0, trackHeight - thumbHeight);
+  const thumbTop = maxScroll > 0 ? (metrics.top / maxScroll) * thumbRange : 0;
+  const move = (amount: number) => targetRef.current?.scrollBy({ top: amount, behavior: "smooth" });
+
+  return (
+    <div className="w95-scrollbar" aria-label="본문 스크롤 조절">
+      <button className="w95-scroll-button" aria-label="위로 스크롤" onClick={() => move(-40)}>
+        <svg width="10" height="10" viewBox="0 0 10 10" shapeRendering="crispEdges" aria-hidden="true">
+          <path d="M4 1h2v2h2v2h1v2H1V5h1V3h2z" fill="currentColor" />
+        </svg>
+      </button>
+      <div
+        className="w95-scroll-track"
+        onPointerDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
+          move(y < thumbTop ? -metrics.height : metrics.height);
+        }}
+      >
+        <div
+          className="w95-scroll-thumb"
+          role="scrollbar"
+          tabIndex={0}
+          aria-label="본문 스크롤 위치"
+          aria-orientation="vertical"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(maxScroll)}
+          aria-valuenow={Math.round(metrics.top)}
+          style={{ height: thumbHeight, top: thumbTop }}
+          onPointerDown={(e) => {
+            drag.current = { pointerId: e.pointerId, y: e.clientY, top: metrics.top };
+            e.currentTarget.setPointerCapture(e.pointerId);
+            e.preventDefault();
+          }}
+          onPointerMove={(e) => {
+            if (drag.current?.pointerId !== e.pointerId || thumbRange === 0) return;
+            targetRef.current?.scrollTo({ top: drag.current.top + ((e.clientY - drag.current.y) / thumbRange) * maxScroll });
+          }}
+          onPointerUp={(e) => {
+            if (drag.current?.pointerId === e.pointerId) {
+              drag.current = null;
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
+              e.preventDefault();
+              move((e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : e.key === "PageUp" ? -metrics.height / 40 : metrics.height / 40) * 40);
+            }
+          }}
+        />
+      </div>
+      <button className="w95-scroll-button" aria-label="아래로 스크롤" onClick={() => move(40)}>
+        <svg width="10" height="10" viewBox="0 0 10 10" shapeRendering="crispEdges" aria-hidden="true">
+          <path d="M1 3h8v2H8v2H6v2H4V7H2V5H1z" fill="currentColor" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 function Section({
   title,
   children,
@@ -1014,6 +1280,7 @@ function Section({
     <div className="mt-5">
       <button
         onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
         onDragOver={(e) => {
           if (!onDrop) return;
           e.preventDefault();
@@ -1026,15 +1293,18 @@ function Section({
           setOver(false);
           onDrop();
         }}
-        className={`flex cursor-pointer items-center gap-2 rounded-md px-1 text-[14px] font-bold text-foreground transition-colors ${
+        className={`sk-section-toggle flex cursor-pointer items-center gap-2 rounded-md px-1 text-[14px] font-bold text-foreground transition-colors ${
           over ? "bg-background-secondary" : ""
         }`}
       >
         <span
-          className={`text-[8px] transition-transform duration-300 ease-out ${expanded ? "" : "-rotate-90"}`}
+          aria-hidden="true"
+          className="sk-section-arrow text-[8px] transition-transform duration-300 ease-out"
+          style={{ transform: expanded ? undefined : "rotate(-90deg)" }}
         >
           ▼
         </span>
+        <PixelSectionIcon kind={title === "Schedule" ? "calendar" : "tasks"} />
         {title}
       </button>
       <Collapse open={expanded}>
@@ -1191,14 +1461,15 @@ export default function App() {
 
   // ── 온보딩 ──
   const [onboarded, setOnboarded] = useState<boolean>(loadOnboarded);
+  const [showSkinPicker, setShowSkinPicker] = useState(false);
   const onboardedRef = useRef(onboarded);
   onboardedRef.current = onboarded;
   // 온보딩 중엔 창을 화면 정가운데에, 끝나면 원래 자리(우하단)로
   const wasOnboarded = useRef(onboarded);
   useEffect(() => {
     if (!isElectron) return;
-    if (!onboarded) {
-      // 온보딩 중에는 패널을 화면 정가운데에 (앱 시작 직후 main이 위치를 다시 잡을 수 있어 한 박자 뒤 재적용)
+    if (!onboarded || showSkinPicker) {
+      // 온보딩과 첫 스킨 선택 중에는 패널을 화면 정가운데에 (앱 시작 직후 main이 위치를 다시 잡을 수 있어 한 박자 뒤 재적용)
       const apply = () => {
         window.widget?.centerWindow(open);
         if (open) window.widget?.setMode("panel");
@@ -1213,10 +1484,11 @@ export default function App() {
       window.widget?.centerWindow(false);
       wasOnboarded.current = true;
     }
-  }, [onboarded, open]);
+  }, [onboarded, open, showSkinPicker]);
   const finishOnboarding = () => {
     // DEV 강제 모드에서는 실제 상태를 저장하지 않고 화면만 닫는다 (새로고침하면 다시 보임)
     if (!DEV_FORCE_NEW_USER) localStorage.setItem(ONBOARDED_KEY, "1");
+    setShowSkinPicker(true);
     setOnboarded(true);
   };
 
@@ -1303,8 +1575,13 @@ export default function App() {
 
   // ── 완료 표시 스타일 ──
   const [look, setLook] = useState<Look>(loadLook);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const mainScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    applyLook(look);
+    // 온보딩은 낙서로 유지하고, 완료한 뒤 선택한 스킨을 앱에 적용한다.
+    applyLook(onboarded ? look : "sketch");
+  }, [look, onboarded]);
+  useEffect(() => {
     localStorage.setItem("my-day-look", look);
   }, [look]);
   // 낙서 스킨이면 완료 선도 낙서선으로
@@ -1376,7 +1653,7 @@ export default function App() {
     if (!isElectron) return;
     return window.widget?.onBlur(() => {
       // 온보딩 중이거나 패널을 여는 중에는 접지 않음
-      if (!onboardedRef.current || openingRef.current) return;
+      if (!onboardedRef.current || openingRef.current || document.querySelector(".skin-picker[open]")) return;
       // (화면에 띄우기 모드에서만 도착 — 메뉴 막대 모드는 main이 창을 숨김)
       setOpen((o) => {
         if (o) window.widget?.setMode("widget");
@@ -1639,7 +1916,7 @@ export default function App() {
     ]);
   };
 
-  // 할일 추가 줄. 기본 스킨은 목록 끝에, 낙서/Win95 스킨은 패널 맨 아래에 고정
+  // 할일 추가 줄. 낙서/윈도우 스킨 모두 패널 맨 아래에 고정
   const addTaskRow = (
         <div className="sk-addrow mt-1 flex items-center pl-6">
           <input
@@ -1933,7 +2210,7 @@ export default function App() {
               </svg>
             </button>
           )}
-          {onboarded && look === "win95" && isElectron && placement === "floating" && (
+          {onboarded && look === "win95" && placement === "floating" && (
             <button
               onClick={() => {
                 setOpen(false);
@@ -1941,7 +2218,7 @@ export default function App() {
                 window.widget?.setMode("widget");
               }}
               aria-label="접기"
-              style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+              style={isElectron ? ({ WebkitAppRegion: "no-drag" } as React.CSSProperties) : undefined}
               className="w95-close absolute right-1.5 top-1/2 flex h-[18px] w-[18px] -translate-y-1/2 cursor-pointer items-center justify-center text-black"
             >
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -1980,9 +2257,9 @@ export default function App() {
         >
           {!onboarded ? (
             <Onboarding
-              look={look}
-              onLook={setLook}
-              calConnected={calConnected}
+              step={onboardingStep}
+              onStep={setOnboardingStep}
+              calConnected={DEV_FORCE_NEW_USER && !isElectron ? false : calConnected}
               googleEmail={google.email}
               googleBusy={googleBusy}
               googleErr={googleErr}
@@ -2046,7 +2323,8 @@ export default function App() {
 
           {/* 본문 — 탭/설정 전환 시 내용이 아래에서 위로 떠오름 */}
           <div className={`sk-body flex min-h-0 flex-1 flex-col ${settingsOpen ? "sk-settings" : ""}`}>
-          <div className="sk-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+          <div className="sk-scroll-frame flex min-h-0 flex-1">
+          <div ref={mainScrollRef} className="sk-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-5">
           <AnimatePresence initial={false} mode="popLayout">
           <motion.div
             key={settingsOpen ? "settings" : seg}
@@ -2082,18 +2360,15 @@ export default function App() {
                     desc={
                       look === "sketch"
                         ? "종이에 손으로 그린 듯한 낙서 스킨이에요"
-                        : look === "win95"
-                          ? "회색 창과 파란 제목 막대, 그 시절 그 느낌"
-                          : "깔끔한 기본 스킨이에요"
+                        : "회색 창과 파란 제목 막대, 그 시절 그 느낌"
                     }
                   >
                     <Dropdown<Look>
                       value={look}
                       onChange={setLook}
                       options={[
-                        ["default", "기본"],
                         ["sketch", "낙서"],
-                        ["win95", "Win95"],
+                        ["win95", "윈도우"],
                       ]}
                     />
                   </SettingRow>
@@ -2401,7 +2676,6 @@ export default function App() {
                     </Group>
                   ))}
 
-                  {look === "default" && addTaskRow}
                 </Section>
               </>
             )}
@@ -2482,8 +2756,10 @@ export default function App() {
           </motion.div>
           </AnimatePresence>
           </div>
+          <ClassicScrollBar targetRef={mainScrollRef} enabled={look === "win95"} watchKey={settingsOpen ? "settings" : seg} />
+          </div>
           {/* Win95·낙서 스킨: 할일이 많아져도 입력줄이 안 밀리게 패널 하단 고정 */}
-          {look !== "default" && !settingsOpen && seg === "todo" && (
+          {!settingsOpen && seg === "todo" && (
             <div className="w95-addbar">{addTaskRow}</div>
           )}
           </div>
@@ -2492,6 +2768,7 @@ export default function App() {
 
         </motion.div>
       </div>
+      {showSkinPicker && <SkinPickerModal look={look} onLook={setLook} onDone={() => setShowSkinPicker(false)} />}
     </StrikeCtx.Provider>
   );
 
@@ -2618,10 +2895,21 @@ export default function App() {
     );
   }
 
-  // ── 밍라우저 미리보기 ──
+  // ── 브라우저 미리보기 ──
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface font-mono">
-      {panelEl}
+      {open || !onboarded ? panelEl : (
+        <button
+          onClick={openPanel}
+          aria-label="패널 열기"
+          className="sk-pill flex cursor-pointer items-center gap-2.5 rounded-full border border-black/8 bg-white py-3 pl-5 pr-5 shadow-[0_5px_16px_rgba(0,0,0,0.16)] dark:border-white/10 dark:bg-background-secondary/75"
+        >
+          <span className="whitespace-nowrap text-[13px] font-bold text-foreground">☑ {todoCount}</span>
+          <span className="max-w-[130px] truncate whitespace-nowrap text-[12px] text-muted">
+            {nextEvent ? `${nextEvent.start} ${nextEvent.name}` : "No events"}
+          </span>
+        </button>
+      )}
       {menusEl}
     </div>
   );
@@ -2822,11 +3110,6 @@ function TaskRow({
         </span>
       )}
 
-      {task.time && (
-        <span className="flex-shrink-0 text-[11px] text-muted">
-          {task.time}
-        </span>
-      )}
       {carried > 0 && (
         <span className="flex-shrink-0 text-[11px] text-warning">
           +{carried}d

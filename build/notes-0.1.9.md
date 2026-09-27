@@ -8,7 +8,8 @@
 
 ## 설치 및 개발
 
-- Apple Silicon: `My.Day-0.1.9-arm64.dmg`
-- Intel: `My.Day-0.1.9.dmg`
+- Apple Silicon: `My.Day-0.1.9-arm64-mac.zip`
+- Intel: `My.Day-0.1.9-mac.zip`
+- ZIP을 압축 해제한 뒤 My Day.app을 응용 프로그램 폴더로 옮기세요.
 - 설치 앱 이름은 기존과 동일한 My Day입니다. 온보딩에는 Tody로 표시됩니다.
 - 개발 작업은 `skin/win95` 브랜치에서 계속합니다. `HANDOFF.md`에 회사 컴퓨터 실행 방법과 현재 디자인 상태를 정리했습니다.

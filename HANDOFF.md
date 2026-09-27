@@ -52,6 +52,6 @@ npm run dev
 - 사용자는 디자이너입니다. 요청한 UI 변경을 진행하고 미리보기를 열어주세요.
 - 이후 빌드·배포는 사용자가 요청할 때만 합니다. 개발 미리보기는 실행해도 됩니다.
 - `npm run build`: 타입 검사 + 프론트엔드 빌드.
-- `npm run dist`: macOS Apple Silicon / Intel 설치 파일 생성.
+- `npm run dist`: macOS Apple Silicon / Intel 설치 파일 생성. 이번 환경에서는 DMG 생성이 차단되어 v0.1.9는 ZIP 앱 패키지로 준비했습니다.
 - Google 로그인 빌드 설정은 `electron/secrets/google-oauth.json`이며 Git에 포함하지 않습니다. 회사 컴퓨터에서도 Google 로그인 테스트나 배포 시 별도로 필요합니다. 브라우저 UI 개발에는 필요 없습니다.
 - 개인 일정, 로그인 토큰, `.env.local`, `electron/secrets/`는 커밋하지 않습니다.

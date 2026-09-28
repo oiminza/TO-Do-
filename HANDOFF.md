@@ -1,6 +1,6 @@
 # Tody — 회사 컴퓨터에서 이어서 작업하기
 
-현재 작업 브랜치: `skin/win95`. 최신 배포는 v0.1.10입니다. 설치 앱의 Schedule/Tasks 이미지 경로를 수정했습니다. `main`에는 아직 합치지 않았습니다.
+현재 작업 브랜치: `skin/win95`. 최신 배포는 v0.1.12입니다. 앱 이름을 Tody로 바꿨습니다. `main`에는 아직 합치지 않았습니다.
 
 ## 실행
 
@@ -45,7 +45,11 @@ npm run dev
 - `src/App.tsx`: 온보딩, 데모 모션, 스킨 선택창, 앱 UI.
 - `src/index.css`: 낙서/윈도우 스타일, 스크롤, 스킨 선택창 등장 모션.
 - `public/onboarding-welcome.mp4`, `public/schedule-calendar.png`, `public/task-notepad.png`: 필수 자산, Git에 포함.
-- 앱 설치 파일 이름과 appId는 호환성을 위해 아직 My Day / com.oiminza.myday를 사용합니다. 온보딩 표기는 Tody입니다.
+- v0.1.12부터 앱 이름은 **Tody**(Tody.app)입니다. appId(com.oiminza.myday)는 그대로입니다.
+- 내부 이름은 `app.setName("My Day")`로 유지해서 데이터 폴더(~/Library/Application Support/My Day)와 구글 토큰 키체인 항목을 그대로 씁니다. 이 줄을 지우면 기존 사용자 데이터가 안 보입니다.
+- Tody.app을 처음 켜면 같은 폴더의 예전 My Day.app을 끄고 휴지통으로 옮깁니다(`retireOldApp`).
+- 첫 실행 위치는 화면 정가운데. 같은/낮은 버전으로 재설치하면 온보딩을 다시 보여줍니다(`detectReinstall`).
+- 릴리즈 업로드: `npm run dist` 후 `bash release/upload-release.sh` (release/는 깃 제외, 제목·설명은 스크립트 안에서 수정).
 
 ## 빌드와 주의사항
 

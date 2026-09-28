@@ -2527,7 +2527,7 @@ export default function App() {
                         });
                         const a = document.createElement("a");
                         a.href = URL.createObjectURL(blob);
-                        a.download = `my-day-${today()}.json`;
+                        a.download = `tody-${today()}.json`;
                         a.click();
                         URL.revokeObjectURL(a.href);
                       }}
@@ -2556,7 +2556,7 @@ export default function App() {
                 {/* ── 정보 ── */}
                 <SettingCard title="정보">
                   <SettingRow
-                    label={`My Day v${appVersion}`}
+                    label={`Tody v${appVersion}`}
                     desc={
                       !isElectron
                         ? "브라우저 미리보기"

@@ -1,4 +1,4 @@
-# My Day ☑
+# Tody ☑
 
 macOS 메뉴바 / 플로팅 **투두 + 오늘 일정 위젯**.
 오늘 할 일과 캘린더 일정을 작은 창 하나에서 보고, 체크하면 낙서처럼 선이 그어집니다.
@@ -15,19 +15,21 @@ macOS 메뉴바 / 플로팅 **투두 + 오늘 일정 위젯**.
 ## 설치 (macOS)
 
 1. [Releases](https://github.com/oiminza/TO-Do-/releases/latest)에서 내 맥에 맞는 파일을 받습니다.
-   - Apple Silicon (M1~M4): `My.Day-x.y.z-arm64.dmg`
-   - Intel: `My.Day-x.y.z.dmg`
-2. dmg를 열고 **My Day**를 **응용 프로그램** 폴더로 드래그
+   - Apple Silicon (M1~M4): `Tody-x.y.z-arm64.dmg`
+   - Intel: `Tody-x.y.z.dmg`
+2. dmg를 열고 **Tody**를 **응용 프로그램** 폴더로 드래그
 3. 처음 실행할 때 아래 안내를 따라주세요 👇
+
+> 예전 이름(My Day)으로 설치했던 분은 Tody를 처음 켜면 My Day.app이 자동으로 휴지통으로 옮겨집니다. 할 일과 설정은 그대로 이어져요.
 
 ### 처음 열 때 "손상되었거나 확인되지 않은 개발자" 경고가 뜨면
 
 Apple 개발자 서명이 없는 개인 프로젝트라서 뜨는 안내예요. 한 번만 허용하면 그 뒤로는 그냥 열립니다.
 
-- **시스템 설정 → 개인정보 보호 및 보안** → 아래로 내려 *"My Day"이(가) 차단됨* 옆 **확인 없이 열기** → 다시 실행
+- **시스템 설정 → 개인정보 보호 및 보안** → 아래로 내려 *"Tody"이(가) 차단됨* 옆 **확인 없이 열기** → 다시 실행
 - 또는 터미널에서 한 줄:
   ```bash
-  xattr -cr "/Applications/My Day.app"
+  xattr -cr "/Applications/Tody.app"
   ```
 
 ## 캘린더 연결

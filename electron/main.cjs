@@ -2,6 +2,13 @@ const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, shell } = 
 const path = require("path");
 const fs = require("fs");
 const nodeIcal = require("node-ical");
+// 앱 이름은 Tody로 바꿨지만, 내부 이름은 예전 "My Day"로 유지한다.
+// 그래야 기존 데이터 폴더(~/Library/Application Support/My Day)와
+// 구글 로그인 토큰을 잠근 키체인 항목("My Day Safe Storage")을 그대로 쓸 수 있다.
+// (반드시 다른 모듈이 userData 를 쓰기 전에 실행)
+app.setName("My Day");
+app.setPath("userData", path.join(app.getPath("appData"), "My Day"));
+
 const gauth = require("./googleAuth.cjs");
 
 // ─── 캘린더 설정 (비밀 ICS URL은 로컬 config.json에만 저장) ───
@@ -421,7 +428,7 @@ function createTray() {
   icon.setTemplateImage(true); // macOS가 라이트/다크에 맞게 자동 틴트
   tray = new Tray(icon);
   tray.setTitle(trayTitle, { fontType: "monospacedDigit" });
-  tray.setToolTip("My Day");
+  tray.setToolTip("Tody");
 
   // 좌클릭: 메뉴 막대 모드면 패널 열기/닫기, 위젯 모드면 패널 열기(위젯이 있는 자리에서)
   tray.on("click", () => {
@@ -450,9 +457,9 @@ function createTray() {
         },
       },
       { type: "separator" },
-      { label: `My Day ${app.getVersion()}`, enabled: false },
+      { label: `Tody ${app.getVersion()}`, enabled: false },
       { type: "separator" },
-      { label: "My Day 종료", accelerator: "Cmd+Q", click: () => app.quit() },
+      { label: "Tody 종료", accelerator: "Cmd+Q", click: () => app.quit() },
     ]);
     tray.popUpContextMenu(menu);
   });
@@ -618,7 +625,31 @@ ipcMain.on("consume-fresh-install", (e) => {
   freshInstall = false;
 });
 
-app.whenReady().then(() => {
+// ─── 예전 이름(My Day.app) 정리 ────────────────────────────────
+// Tody.app 으로 처음 켜졌을 때 같은 폴더에 예전 My Day.app 이 있으면
+// 실행 중인 것을 끄고 휴지통으로 옮긴다. (둘이 동시에 켜지면 같은 데이터를 두고 충돌한다)
+async function retireOldApp() {
+  if (!app.isPackaged) return;
+  const { execFile } = require("child_process");
+  const run = (cmd, args) => new Promise((r) => execFile(cmd, args, (err) => r(!err)));
+  const OLD_BIN = "My Day.app/Contents/MacOS/My Day";
+  if (await run("pgrep", ["-f", OLD_BIN])) {
+    await run("pkill", ["-f", OLD_BIN]);
+    for (let i = 0; i < 20 && (await run("pgrep", ["-f", OLD_BIN])); i++) await new Promise((r) => setTimeout(r, 100));
+  }
+  const bundle = path.resolve(process.execPath, "..", "..", "..");
+  const old = path.join(path.dirname(bundle), "My Day.app");
+  if (old !== bundle && fs.existsSync(old)) {
+    try {
+      await shell.trashItem(old);
+    } catch {
+      /* 권한 문제 등은 무시 — 사용자가 직접 지우면 된다 */
+    }
+  }
+}
+
+app.whenReady().then(async () => {
+  await retireOldApp();
   detectReinstall();
   app.dock?.hide();
   createTray();

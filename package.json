@@ -1,7 +1,7 @@
 {
   "name": "my-day",
   "private": true,
-  "version": "0.1.11",
+  "version": "0.1.12",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -39,7 +39,7 @@
   "homepage": "https://github.com/oiminza/TO-Do-",
   "build": {
     "appId": "com.oiminza.myday",
-    "productName": "My Day",
+    "productName": "Tody",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -74,7 +74,7 @@
       "identity": null
     },
     "dmg": {
-      "title": "My Day",
+      "title": "Tody",
       "contents": [
         {
           "x": 140,

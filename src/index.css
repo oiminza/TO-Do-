@@ -372,6 +372,9 @@ html.sketch .sk-selected .sk-check { border-width: 2.4px !important; }
 /* 낙서 스킨: 항목 호버 시 글자가 너무 엷어지지 않게 */
 html.sketch .group:hover .group-hover\:opacity-70 { opacity: 0.85; }
 
+/* 펼쳐두기 모드의 ✕: 톱니바퀴와 같은 잉크색 */
+html.sketch .sk-close { color: var(--ink) !important; background: transparent !important; }
+
 /* 설정 톱니바퀴: 기본은 아이콘만, 설정을 열면 펜이 한 바퀴 돌며 동그라미를 친다 */
 html.sketch .sk-gear {
   position: absolute;

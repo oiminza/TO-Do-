@@ -29,6 +29,8 @@ declare global {
       pillSize: (w: number, h: number) => void;
       appVersion: () => Promise<string>;
       quitApp: () => void;
+      hideWindow?: () => void;
+      setAlwaysOnTop?: (on: boolean) => void;
       checkUpdate: () => Promise<UpdateInfo>;
       openExternal: (url: string) => Promise<void>;
       calendarEvents: () => Promise<{
@@ -51,6 +53,21 @@ const PLACEMENT_LABEL: Record<Placement, string> = {
   menubar: "메뉴 막대",
 };
 
+// 화면에 띄우기 모드의 크기: 다른 곳을 누르면 알약으로 접기 / 펼친 채로 두기
+type WidgetSize = "collapse" | "pinned";
+const SIZE_KEY = "my-day-size";
+const SIZE_LABEL: Record<WidgetSize, string> = {
+  collapse: "작게 접기",
+  pinned: "펼쳐두기",
+};
+function loadWidgetSize(): WidgetSize {
+  try {
+    return localStorage.getItem(SIZE_KEY) === "pinned" ? "pinned" : "collapse";
+  } catch {
+    return "collapse";
+  }
+}
+
 interface CalEvent {
   name: string;
   start: string;
@@ -67,6 +84,8 @@ interface Task {
   flag: boolean;
   created: string;
   doneAt?: string;
+  // 완료할 때 어느 탭에 있었는지. To-do에서 끝낸 일은 그날 자정까지 To-do에 줄 그은 채로 남는다.
+  doneFrom?: Status;
   group?: string;
 }
 
@@ -1548,15 +1567,43 @@ export default function App() {
     setCalConfigured(false);
   };
 
+  // ── 크기 (작게 접기 / 펼쳐두기) ──
+  const [widgetSize, setWidgetSize] = useState<WidgetSize>(loadWidgetSize);
+  const sizeRef = useRef(widgetSize);
+  sizeRef.current = widgetSize;
+  const changeWidgetSize = (v: WidgetSize) => {
+    setWidgetSize(v);
+    try {
+      localStorage.setItem(SIZE_KEY, v);
+    } catch {
+      /* ignore */
+    }
+  };
+  // 펼쳐두기 모드면 패널을 연다 (앱 시작 직후, 화면에 띄우기로 돌아왔을 때)
+  const openPanelRef = useRef<() => void>(() => {});
+  const ensurePinnedOpen = () => {
+    if (sizeRef.current !== "pinned" || !onboardedRef.current) return;
+    if (openRef.current || openingRef.current) return;
+    openPanelRef.current();
+  };
+
   // ── 위치 (화면에 띄우기 / 메뉴 막대) ──
   const [placement, setPlacement] = useState<Placement>("floating");
   useEffect(() => {
     if (!window.widget) return;
-    window.widget.getPlacement().then(setPlacement);
+    window.widget.getPlacement().then((p) => {
+      setPlacement(p);
+      // 시작 직후 main 이 창 자리를 잡는 동안 기다렸다가 연다
+      if (p === "floating") setTimeout(ensurePinnedOpen, 400);
+    });
     const offP = window.widget.onPlacement((p) => {
       setPlacement(p);
       if (p === "menubar") setOpen(true); // 메뉴 막대엔 위젯 모드가 없음
       else if (onboardedRef.current) {
+        if (sizeRef.current === "pinned") {
+          ensurePinnedOpen(); // 펼쳐두기 → 알약 없이 바로 패널
+          return;
+        }
         setOpen(false); // 화면에 띄우기로 복귀 → 작은 위젯부터 (온보딩 중에는 패널 열린 상태 유지)
         setSettingsOpen(false);
       }
@@ -1571,10 +1618,18 @@ export default function App() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // 펼쳐두기(화면에 띄우기)일 때만 다른 창이 위로 올라올 수 있게. 알약·메뉴 막대·온보딩은 항상 맨 위.
+  useEffect(() => {
+    if (!isElectron) return;
+    window.widget?.setAlwaysOnTop?.(!(placement === "floating" && widgetSize === "pinned" && onboarded));
+  }, [placement, widgetSize, onboarded]);
+
   const changePlacement = (p: Placement) => {
     setPlacement(p);
     if (p === "menubar") setOpen(true);
-    else {
+    else if (sizeRef.current === "pinned") {
+      /* 펼쳐두기: 패널과 설정 화면을 그대로 둔다 */
+    } else {
       setOpen(false);
       setSettingsOpen(false);
     }
@@ -1638,6 +1693,12 @@ export default function App() {
     window.widget?.setMode("panel"); // main이 창을 패널 크기로 키운 뒤 신호를 보낸다
     if (!onboardedRef.current) window.widget?.centerWindow(true);
   };
+  openPanelRef.current = openPanel;
+  // 펼쳐두기의 ✕: 창을 숨기고 메뉴 막대 아이콘만 남긴다 (아이콘을 누르면 그대로 다시 나타남)
+  const hidePinned = () => {
+    setSettingsOpen(false);
+    window.widget?.hideWindow?.();
+  };
 
   // 메뉴 막대 아이콘에서 "열기" → 위젯 모드에서도 패널을 연다
   useEffect(() => {
@@ -1665,6 +1726,7 @@ export default function App() {
     return window.widget?.onBlur(() => {
       // 온보딩 중이거나 패널을 여는 중에는 접지 않음
       if (!onboardedRef.current || openingRef.current || document.querySelector(".skin-picker[open]")) return;
+      if (sizeRef.current === "pinned") return; // 펼쳐두기: 다른 곳을 눌러도 접지 않음
       // (화면에 띄우기 모드에서만 도착 — 메뉴 막대 모드는 main이 창을 숨김)
       setOpen((o) => {
         if (o) window.widget?.setMode("widget");
@@ -1710,6 +1772,20 @@ export default function App() {
     [tasks],
   );
 
+  // ── 오늘 날짜 (자정이 지나면 바뀜 → 오늘 끝낸 일이 To-do에서 Done으로 정리된다) ──
+  const [dayKey, setDayKey] = useState(today);
+  useEffect(() => {
+    const tick = () => setDayKey((d) => (d === today() ? d : today()));
+    const t = setInterval(tick, 30_000);
+    window.addEventListener("focus", tick);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("focus", tick);
+    };
+  }, []);
+  // To-do에서 오늘 끝낸 일 (Later에서 끝낸 일은 바로 Done으로만)
+  const doneTodayInTodo = (t: Task) => t.status === "done" && t.doneAt === dayKey && t.doneFrom !== "later";
+
   // ── 그룹/정렬 ──
   const todos = byStatus.todo;
   // 미완료 멤버가 남아있는 그룹만 To-do 탭에 유지 (전부 완료되면 그룹째 Done으로)
@@ -1721,23 +1797,28 @@ export default function App() {
   );
   // 그룹 멤버: 미완료 먼저, 완료는 아래로
   const groupMembers = (g: string) => {
+    // 완료 멤버는 오늘 끝낸 것만 (예전에 같은 이름 그룹에서 끝낸 일이 다시 보이지 않게)
     const members = tasks.filter(
-      (t) => t.group === g && (t.status === "todo" || t.status === "done"),
+      (t) => t.group === g && (t.status === "todo" || doneTodayInTodo(t)),
     );
     return [
       ...members.filter((t) => t.status !== "done"),
       ...members.filter((t) => t.status === "done"),
     ];
   };
+  // To-do 탭에 보이는 그룹: 진행 중이거나, 오늘 끝낸 멤버가 있는 그룹 (자정까지 유지)
+  const todoGroups = allGroupNames.filter(
+    (g) => activeGroups.includes(g) || tasks.some((t) => t.group === g && doneTodayInTodo(t)),
+  );
+  // 그룹 밖에서 오늘 끝낸 일 — To-do 목록 맨 아래에 줄 그은 채로
+  const ungroupedDoneToday = tasks.filter((t) => !t.group && doneTodayInTodo(t));
   const ungrouped = todos.filter((t) => !t.group);
   const orderedTodos = [
     ...ungrouped,
     ...activeGroups.flatMap((g) => todos.filter((t) => t.group === g)),
   ];
-  // Done 탭: 아직 진행 중인 그룹의 완료 항목은 제외
-  const doneList = byStatus.done.filter(
-    (t) => !t.group || !activeGroups.includes(t.group),
-  );
+  // Done 탭: 끝낸 일 전부 (오늘 끝낸 일도 포함 — To-do에도 자정까지 같이 보인다)
+  const doneList = byStatus.done;
   // 완료 날짜별로 묶기 (최신 날짜 먼저)
   const doneByDate = Object.entries(
     doneList.reduce<Record<string, Task[]>>((acc, t) => {
@@ -1851,8 +1932,9 @@ export default function App() {
       ts.map((t) => {
         if (t.id !== id) return t;
         const next = { ...t, ...patch };
-        // To-do 를 벗어나면(Later / Done) 그룹에서 자동으로 무어진다 — 그룹은 오늘 할 일을 묶는 것이므로
-        if (patch.status && patch.status !== "todo") next.group = undefined;
+        // Later 로 옮기면 그룹에서 빠진다 — 그룹은 오늘 할 일을 묶는 것이므로.
+        // 완료(Done)는 그룹을 유지해서, 자정까지 그 그룹 안에 줄 그은 채로 남는다.
+        if (patch.status === "later") next.group = undefined;
         return next;
       }),
     );
@@ -2224,16 +2306,29 @@ export default function App() {
           {onboarded && look === "win95" && placement === "floating" && (
             <button
               onClick={() => {
+                if (widgetSize === "pinned") return hidePinned();
                 setOpen(false);
                 setSettingsOpen(false);
                 window.widget?.setMode("widget");
               }}
-              aria-label="접기"
+              aria-label={widgetSize === "pinned" ? "닫기" : "접기"}
               style={isElectron ? ({ WebkitAppRegion: "no-drag" } as React.CSSProperties) : undefined}
               className="w95-close absolute right-1.5 top-1/2 flex h-[18px] w-[18px] -translate-y-1/2 cursor-pointer items-center justify-center text-black"
             >
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                 <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" />
+              </svg>
+            </button>
+          )}
+          {onboarded && isElectron && look !== "win95" && placement === "floating" && widgetSize === "pinned" && (
+            <button
+              onClick={hidePinned}
+              aria-label="닫기"
+              style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+              className="sk-close absolute right-4 top-1/2 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted outline-none transition-colors hover:text-foreground focus:outline-none"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" />
               </svg>
             </button>
           )}
@@ -2250,7 +2345,7 @@ export default function App() {
                 ? ({ WebkitAppRegion: "no-drag" } as React.CSSProperties)
                 : undefined
             }
-            className={`sk-gear absolute right-4 top-1/2 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full outline-none transition-colors hover:text-foreground focus:outline-none focus-visible:outline-none ${
+            className={`sk-gear absolute ${isElectron && look !== "win95" && placement === "floating" && widgetSize === "pinned" ? "right-12" : "right-4"} top-1/2 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full outline-none transition-colors hover:text-foreground focus:outline-none focus-visible:outline-none ${
               settingsOpen ? "bg-surface text-foreground" : "text-muted"
             }`}
           >
@@ -2310,7 +2405,7 @@ export default function App() {
                   <Tabs.List aria-label="상태 필터" className="w-full">
                     {(
                       [
-                        ["todo", "To-do"],
+                        ["todo", "Today"],
                         ["later", "Later"],
                         ["done", "Done"],
                       ] as const
@@ -2320,8 +2415,9 @@ export default function App() {
                         key={key}
                         className="flex-1 whitespace-nowrap px-2 font-mono"
                       >
-                        {label}{" "}
-                        {key === "done" ? doneList.length : byStatus[key].length}
+                        {label}
+                        {/* Done은 계속 쌓이기만 해서 개수를 보여주지 않는다 (개수는 Done 탭 안 요약에서) */}
+                        {key !== "done" && ` ${byStatus[key].length}`}
                         <Tabs.Indicator />
                       </Tabs.Tab>
                     ))}
@@ -2399,6 +2495,26 @@ export default function App() {
                         options={[
                           ["floating", PLACEMENT_LABEL.floating],
                           ["menubar", PLACEMENT_LABEL.menubar],
+                        ]}
+                      />
+                    </SettingRow>
+                  )}
+                  {isElectron && placement === "floating" && (
+                    <SettingRow
+                      label="크기"
+                      desc={
+                        widgetSize === "pinned"
+                          ? "펼친 채로 두고, 다른 창이 위로 올라올 수 있어요."
+                          : "다른 곳을 누르면 작은 알약으로 접혀요"
+                      }
+                    >
+                      <Dropdown<WidgetSize>
+                        value={widgetSize}
+                        onChange={changeWidgetSize}
+                        width={140}
+                        options={[
+                          ["collapse", SIZE_LABEL.collapse],
+                          ["pinned", SIZE_LABEL.pinned],
                         ]}
                       />
                     </SettingRow>
@@ -2657,7 +2773,7 @@ export default function App() {
 
                 <Section title="Tasks" onDrop={() => dropIntoGroup(undefined)}>
                   {/* 할일이 하나도 없을 때 — Schedule의 "No events today"와 같은 톤 */}
-                  {ungrouped.length === 0 && activeGroups.length === 0 && (
+                  {ungrouped.length === 0 && todoGroups.length === 0 && ungroupedDoneToday.length === 0 && (
                     <p className="py-[7px] pl-6 text-[12.5px] text-muted">
                       Nothing to do
                     </p>
@@ -2668,7 +2784,7 @@ export default function App() {
                       {groupPrompt?.[groupPrompt.length - 1] === t.id && groupPromptEl}
                     </div>
                   ))}
-                  {activeGroups.map((g) => (
+                  {todoGroups.map((g) => (
                     <Group
                       key={g}
                       name={g}
@@ -2680,11 +2796,15 @@ export default function App() {
                     >
                       {groupMembers(g).map((t) => (
                         <div key={t.id}>
-                          <TaskRow {...rowProps(t)} />
+                          <TaskRow {...rowProps(t)} indent />
                           {groupPrompt?.[groupPrompt.length - 1] === t.id && groupPromptEl}
                         </div>
                       ))}
                     </Group>
+                  ))}
+                  {/* 오늘 끝낸 일: 자정까지 줄 그은 채로 남아 있다가 다음 날 Done으로 */}
+                  {ungroupedDoneToday.map((t) => (
+                    <TaskRow key={t.id} {...rowProps(t)} indent />
                   ))}
 
                 </Section>
@@ -2940,6 +3060,7 @@ function TaskRow({
   onUpdate,
   onContext,
   selected,
+  indent,
   selIdx,
   onSelStart,
   onSelEnter,
@@ -2950,6 +3071,8 @@ function TaskRow({
   onUpdate: (id: string, patch: Partial<Task>) => void;
   onContext?: (x: number, y: number) => void;
   selected?: boolean;
+  // 드래그 손잡이가 없어도 To-do 목록의 다른 행과 같은 들여쓰기 (오늘 끝낸 일)
+  indent?: boolean;
   selIdx?: number;
   onSelStart?: () => void;
   onSelEnter?: () => void;
@@ -2979,11 +3102,12 @@ function TaskRow({
         onUpdate(task.id, {
           status: "done",
           doneAt: today(),
+          doneFrom: task.status,
           flag: false, // 완료되면 우선순위 표시 제거
         });
       }, 550);
     } else if (!sel && done) {
-      onUpdate(task.id, { status: "todo", created: today(), doneAt: undefined });
+      onUpdate(task.id, { status: "todo", created: today(), doneAt: undefined, doneFrom: undefined });
     }
   };
 
@@ -3033,7 +3157,7 @@ function TaskRow({
       }}
       onMouseEnter={() => onSelEnter?.()}
       className={`group relative flex select-none items-center gap-3 rounded-lg py-[7px] pr-1 ${
-        drag ? "pl-6" : "pl-1.5" /* 드래그 손잡이(⠿) 자리가 필요한 행만 들여쓰기 */
+        drag || indent ? "pl-6" : "pl-1.5" /* 드래그 손잡이(⠿) 자리가 필요한 행만 들여쓰기 */
       } ${selected ? "sk-selected bg-background-secondary" : ""} ${checking ? "animate-wiggle" : ""}`}
     >
       {/* 드롭 위치 표시선 */}

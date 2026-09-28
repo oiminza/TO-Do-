@@ -431,6 +431,8 @@ function createTray() {
       else showPanelUnderTray(true);
     } else {
       win.show();
+      win.focus(); // 펼쳐두기로 다른 창 뒤에 있을 때 맨 앞으로
+      app.focus({ steal: true });
       win.webContents.send("open-panel");
     }
   });
@@ -445,6 +447,8 @@ function createTray() {
           if (placement === "menubar") showPanelUnderTray(true);
           else {
             win.show();
+            win.focus();
+            app.focus({ steal: true });
             win.webContents.send("open-panel");
           }
         },
@@ -524,6 +528,14 @@ ipcMain.on("set-mode", (_e, mode) => {
 const REPO = "oiminza/TO-Do-";
 ipcMain.handle("app-version", () => app.getVersion());
 ipcMain.on("quit-app", () => app.quit());
+// "펼쳐두기" 모드의 ✕: 창만 숨긴다. 메뉴 막대 아이콘을 누르면 다시 나타난다.
+ipcMain.on("hide-window", () => {
+  if (win && !win.isDestroyed()) win.hide();
+});
+// 펼쳐두기일 때는 일반 창처럼 다른 창에 가려질 수 있게 한다. (메뉴 막대 아이콘을 누르면 다시 맨 앞으로)
+ipcMain.on("set-always-on-top", (_e, on) => {
+  if (win && !win.isDestroyed()) win.setAlwaysOnTop(!!on);
+});
 ipcMain.handle("open-external", (_e, url) => {
   const u = String(url || "");
   if (/^https:\/\/(github\.com|calendar\.google\.com)\//.test(u)) shell.openExternal(u);

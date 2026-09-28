@@ -50,6 +50,8 @@ contextBridge.exposeInMainWorld("widget", {
   pillSize: (w, h) => ipcRenderer.send("pill-size", w, h),
   appVersion: () => ipcRenderer.invoke("app-version"),
   quitApp: () => ipcRenderer.send("quit-app"),
+  hideWindow: () => ipcRenderer.send("hide-window"),
+  setAlwaysOnTop: (on) => ipcRenderer.send("set-always-on-top", !!on),
   checkUpdate: () => ipcRenderer.invoke("check-update"),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   calendarEvents: () => ipcRenderer.invoke("calendar-events"),

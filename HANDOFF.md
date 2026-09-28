@@ -1,6 +1,6 @@
 # My Day — 회사 컴퓨터에서 이어서 작업하기
 
-현재 작업 브랜치: `skin/win95`. 최신 배포는 v0.1.13입니다. 앱 이름을 My Day로 되돌렸습니다. `main`에는 아직 합치지 않았습니다.
+현재 작업 브랜치: `skin/win95`. 최신 배포는 v0.1.14입니다. 탭 이름 Today / Later / Done, 오늘 끝낸 일은 자정까지 Today에 남음, 설정 → 크기(작게 접기 / 펼쳐두기). `main`에는 아직 합치지 않았습니다.
 
 ## 실행
 
@@ -47,6 +47,9 @@ npm run dev
 - `public/onboarding-welcome.mp4`, `public/schedule-calendar.png`, `public/task-notepad.png`: 필수 자산, Git에 포함.
 - 앱 이름은 **My Day**(My Day.app, appId com.oiminza.myday)입니다. 온보딩·메뉴 등 모든 표기도 My Day입니다.
 - v0.1.12 한 버전만 Tody.app으로 배포했다가 v0.1.13에서 되돌렸습니다. My Day.app을 켜면 같은 폴더의 Tody.app을 끄고 휴지통으로 옮깁니다(`retireOldApp`).
+- 탭: **Today / Later / Done** (내부 상태값은 여전히 `todo` / `later` / `done`). Done 탭은 개수를 표시하지 않음.
+- Today에서 끝낸 일(`doneFrom !== "later"` && `doneAt === 오늘`)은 자정까지 Today 목록 맨 아래(그룹 안이면 그룹 아래)에 줄 그은 채로 남는다. 완료해도 그룹은 유지되고, Later로 옮길 때만 그룹에서 빠진다.
+- 설정 → 크기: `my-day-size` = `collapse`(다른 곳 누르면 알약) / `pinned`(펼친 채 유지, 항상 위 해제, ✕는 창 숨김 → 메뉴 막대 아이콘으로 다시 열기).
 - 첫 실행 위치는 화면 정가운데. 같은/낮은 버전으로 재설치하면 온보딩을 다시 보여줍니다(`detectReinstall`).
 - 릴리즈 업로드: `npm run dist` 후 `bash release/upload-release.sh` (release/는 깃 제외, 제목·설명은 스크립트 안에서 수정).
 

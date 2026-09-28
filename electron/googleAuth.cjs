@@ -106,7 +106,7 @@ async function signIn() {
           /* optional */
         }
         saveToken(tok);
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }).end(page("완료", "Tody로 돌아가셔도 됩니다. 이 창은 닫아도 돼요."));
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }).end(page("완료", "My Day로 돌아가셔도 됩니다. 이 창은 닫아도 돼요."));
         finish({ ok: true, email: tok.email || "" });
       } catch (e) {
         const msg = String(e.message || e);

@@ -975,7 +975,7 @@ function Onboarding({
                 className="mb-3 w-[220px] select-none"
               />
               <h1 className="text-[22px] font-bold leading-snug text-foreground">
-                Tody에 오신 것을
+                My Day에 오신 것을
                 <br />
                 환영해요.
               </h1>
@@ -1068,7 +1068,7 @@ function Onboarding({
                       <li>1. 브라우저에서 사용할 Google 계정을 선택해요.</li>
                       <li>2. 확인되지 않은 앱 안내가 나오면 고급 → 앱으로 이동을 선택해요.</li>
                       <li>3. 캘린더 보기 권한을 허용해요.</li>
-                      <li>4. 완료 안내가 보이면 Tody로 돌아오세요.</li>
+                      <li>4. 완료 안내가 보이면 My Day로 돌아오세요.</li>
                     </ol>
                     <p className="mt-3 text-[11.5px] leading-relaxed">아직 테스트 중이라 미리 승인된 계정만 연결할 수 있어요. 연결이 막히면 쓰시는 계정을 만든 사람에게 알려주세요.</p>
                   </details>
@@ -2527,7 +2527,7 @@ export default function App() {
                         });
                         const a = document.createElement("a");
                         a.href = URL.createObjectURL(blob);
-                        a.download = `tody-${today()}.json`;
+                        a.download = `my-day-${today()}.json`;
                         a.click();
                         URL.revokeObjectURL(a.href);
                       }}
@@ -2556,7 +2556,7 @@ export default function App() {
                 {/* ── 정보 ── */}
                 <SettingCard title="정보">
                   <SettingRow
-                    label={`Tody v${appVersion}`}
+                    label={`My Day v${appVersion}`}
                     desc={
                       !isElectron
                         ? "브라우저 미리보기"

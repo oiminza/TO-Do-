@@ -1,6 +1,6 @@
-# Tody — 회사 컴퓨터에서 이어서 작업하기
+# My Day — 회사 컴퓨터에서 이어서 작업하기
 
-현재 작업 브랜치: `skin/win95`. 최신 배포는 v0.1.12입니다. 앱 이름을 Tody로 바꿨습니다. `main`에는 아직 합치지 않았습니다.
+현재 작업 브랜치: `skin/win95`. 최신 배포는 v0.1.13입니다. 앱 이름을 My Day로 되돌렸습니다. `main`에는 아직 합치지 않았습니다.
 
 ## 실행
 
@@ -29,7 +29,7 @@ npm run dev
 
 - 온보딩: 환영 → 일정·할 일 한눈에 → 그룹 → 완료 그래프 → 일정 연동.
 - 온보딩은 항상 낙서 스킨으로 표시합니다. 제목 아래 설명은 12px입니다.
-- 환영 문구: “Tody에 오신 것을 환영해요.” / “일정 관리를 시작해볼까요?”
+- 환영 문구: “My Day에 오신 것을 환영해요.” / “일정 관리를 시작해볼까요?”
 - 환영 영상은 2배속으로 한 번 재생합니다. 재생 20% 지점에서 시작하기 버튼이 아래에서 올라옵니다.
 - 일정 예시: 11:00 데일리 스탠업 / 19:00 지원이와 저녁약속.
 - 그룹 안내: “하나의 주제로 모아두기”. 디자인 시스템 문서 정리하기와 변경사항 공유하기를 묶는 모션. 드래그 0.6초, 완료 후 약 2초 쉬고 반복합니다.
@@ -45,9 +45,8 @@ npm run dev
 - `src/App.tsx`: 온보딩, 데모 모션, 스킨 선택창, 앱 UI.
 - `src/index.css`: 낙서/윈도우 스타일, 스크롤, 스킨 선택창 등장 모션.
 - `public/onboarding-welcome.mp4`, `public/schedule-calendar.png`, `public/task-notepad.png`: 필수 자산, Git에 포함.
-- v0.1.12부터 앱 이름은 **Tody**(Tody.app)입니다. appId(com.oiminza.myday)는 그대로입니다.
-- 내부 이름은 `app.setName("My Day")`로 유지해서 데이터 폴더(~/Library/Application Support/My Day)와 구글 토큰 키체인 항목을 그대로 씁니다. 이 줄을 지우면 기존 사용자 데이터가 안 보입니다.
-- Tody.app을 처음 켜면 같은 폴더의 예전 My Day.app을 끄고 휴지통으로 옮깁니다(`retireOldApp`).
+- 앱 이름은 **My Day**(My Day.app, appId com.oiminza.myday)입니다. 온보딩·메뉴 등 모든 표기도 My Day입니다.
+- v0.1.12 한 버전만 Tody.app으로 배포했다가 v0.1.13에서 되돌렸습니다. My Day.app을 켜면 같은 폴더의 Tody.app을 끄고 휴지통으로 옮깁니다(`retireOldApp`).
 - 첫 실행 위치는 화면 정가운데. 같은/낮은 버전으로 재설치하면 온보딩을 다시 보여줍니다(`detectReinstall`).
 - 릴리즈 업로드: `npm run dist` 후 `bash release/upload-release.sh` (release/는 깃 제외, 제목·설명은 스크립트 안에서 수정).
 

@@ -6,6 +6,7 @@ declare global {
   interface Window {
     widget?: {
       isElectron: boolean;
+      freshInstall?: boolean;
       setMode: (m: "widget" | "panel") => void;
       moveBy: (dx: number, dy: number) => void;
       onBlur: (cb: () => void) => () => void;
@@ -206,6 +207,16 @@ const DEV_FORCE_NEW_USER: boolean =
 // 예전 버전은 "완료 표시" 설정(my-day-strike)을 저장했고, 이 키는 지금 버전에서 더 이상 쓰지 않으므로 신뢰할 수 있는 흔적.
 // (할일 데이터 존재 여부는 처음 켜도 샘플이 저장되므로 기준이 될 수 없다)
 const isLegacyUser = () => !!localStorage.getItem("my-day-strike");
+
+// 앱을 지웠다 다시 설치한 첫 실행이면 온보딩 완료 기록을 지워 온보딩을 다시 보여준다. (할 일 데이터는 유지)
+if (typeof window !== "undefined" && window.widget?.freshInstall) {
+  try {
+    localStorage.removeItem(ONBOARDED_KEY);
+    localStorage.removeItem("my-day-strike");
+  } catch {
+    /* ignore */
+  }
+}
 
 function loadOnboardedPeek(): boolean {
   if (DEV_FORCE_NEW_USER) return false;

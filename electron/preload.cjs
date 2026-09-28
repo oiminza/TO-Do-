@@ -2,6 +2,8 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("widget", {
   isElectron: true,
+  // 지웠다 다시 설치한 첫 실행이면 true (main 참고). 한 번만 true.
+  freshInstall: ipcRenderer.sendSync("consume-fresh-install"),
   setMode: (mode) => ipcRenderer.send("set-mode", mode),
   moveBy: (dx, dy) => ipcRenderer.send("move-by", dx, dy),
   onBlur: (cb) => {

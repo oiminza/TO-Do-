@@ -167,7 +167,6 @@ ipcMain.handle("calendar-events", async () => {
 // 알약 상태에서는 setIgnoreMouseEvents로 투명 영역 클릭을 뒤 화면으로 통과시킴.
 // 패널 본체(360x600) + 그림자가 그려질 여백(28px)
 const PANEL = { width: 416, height: 656 };
-const MARGIN = 8; // 창 자체에 이미 8px 안쪽 여백이 있어 실제 화면 여백은 16px
 
 let win = null;
 
@@ -180,7 +179,7 @@ function centerOf(size) {
     y: Math.round(workArea.y + (workArea.height - size.height) / 2),
   };
 }
-// 기본 자리: 센터 모드면 가운데, 사용자가 옮긴 위치가 있으면 그 자리, 없으면 우하단
+// 기본 자리: 센터 모드면 가운데, 사용자가 옮긴 위치가 있으면 그 자리, 없으면 화면 가운데
 function homeBounds() {
   if (centered) return clamp({ ...PANEL, ...centerOf(PANEL) });
   const pos = ensurePillPos();
@@ -190,14 +189,6 @@ function homeBounds() {
     x: Math.round(pos.x + size.width / 2 - PANEL.width / 2),
     y: Math.round(pos.y + size.height / 2 - PANEL.height / 2),
   });
-}
-
-function bottomRight(size) {
-  const { workArea } = screen.getPrimaryDisplay();
-  return {
-    x: workArea.x + workArea.width - size.width - MARGIN,
-    y: workArea.y + workArea.height - size.height - MARGIN,
-  };
 }
 
 // ─── 창 크기: 알약일 때는 작게, 패널일 때는 크게 ────────────────────────
@@ -218,13 +209,9 @@ function pillWinSize() {
 // 창 크기(알약↔패널, 알약 폭 변화)로는 절대 바뀌지 않는다. 오직 드래그로만 갱신된다.
 let pillPos = null;
 
+// 처음 자리는 항상 화면 정가운데. 사용자가 끌어서 옮기면 그 자리를 저장해 다음부터 거기에 뜬다.
 function defaultPillPos() {
-  const { workArea } = screen.getPrimaryDisplay();
-  const size = pillWinSize();
-  return {
-    x: workArea.x + workArea.width - size.width - MARGIN,
-    y: workArea.y + workArea.height - size.height - MARGIN,
-  };
+  return centerOf(pillWinSize());
 }
 
 // 알약이 창 안에서 놓일 좌표(= 화면상으로는 항상 같은 자리)를 렌더러에 전달
@@ -355,7 +342,7 @@ function clamp(bounds) {
 function createWindow() {
   win = new BrowserWindow({
     ...PANEL,
-    ...bottomRight(PANEL),
+    ...centerOf(PANEL),
     frame: false,
     transparent: true,
     backgroundColor: "#00000000", // 리사이즈 시 투명 배경이 검게 변하는 버그 방지
@@ -561,7 +548,7 @@ ipcMain.handle("check-update", async () => {
   }
 });
 
-// 온보딩: 창을 화면 정가운데로 (끝나면 우하단으로 복귀)
+// 온보딩: 창을 화면 정가운데로 (끝나면 사용자가 옮겨둔 자리, 없으면 가운데)
 ipcMain.on("center-window", (_e, on) => {
   if (!win) return;
   centered = !!on;
@@ -588,7 +575,51 @@ ipcMain.on("move-by", (_e, dx, dy) => {
   savePosSoon();
 });
 
+// ─── 재설치 감지 ───────────────────────────────────────────
+// 맥은 앱을 지워도 데이터(~/Library/Application Support/My Day)가 남는다.
+// 그래서 "앱 파일이 새로 놓였는데 버전이 이전과 같거나 낮으면" 지웠다 다시 깐 것으로 보고
+// 온보딩을 다시 보여주고 창 위치도 처음(화면 가운데)으로 돌린다.
+// 더 높은 버전으로 바뀐 경우는 업데이트로 보고 아무것도 초기화하지 않는다.
+// 할 일 데이터는 어느 경우에도 지우지 않는다.
+function versionGt(a, b) {
+  const pa = String(a).split(".").map(Number);
+  const pb = String(b).split(".").map(Number);
+  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  return false;
+}
+let freshInstall = false;
+function detectReinstall() {
+  if (!app.isPackaged) return; // 개발 모드에서는 판단하지 않는다
+  let id;
+  try {
+    // execPath = .../My Day.app/Contents/MacOS/My Day → 앱 번들 폴더
+    const bundle = path.resolve(process.execPath, "..", "..", "..");
+    const st = fs.statSync(bundle);
+    id = `${st.ino}-${Math.round(st.birthtimeMs)}`;
+  } catch {
+    return;
+  }
+  const version = app.getVersion();
+  const cfg = loadConfig();
+  const prev = cfg.install;
+  if (prev && prev.id !== id && !versionGt(version, prev.version)) {
+    freshInstall = true;
+    delete cfg.pillPos;
+    delete cfg.panelPos;
+  }
+  if (!prev || prev.id !== id || prev.version !== version) {
+    cfg.install = { id, version };
+    saveConfig(cfg);
+  }
+}
+// 렌더러가 시작할 때 한 번 물어본다 (한 번 답하면 false: 새로고침해도 온보딩이 또 초기화되지 않게)
+ipcMain.on("consume-fresh-install", (e) => {
+  e.returnValue = freshInstall;
+  freshInstall = false;
+});
+
 app.whenReady().then(() => {
+  detectReinstall();
   app.dock?.hide();
   createTray();
   createWindow();

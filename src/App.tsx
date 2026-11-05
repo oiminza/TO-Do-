@@ -3371,7 +3371,7 @@ function TaskDetail({
         onKeyDown={onKey}
         rows={Math.max(1, note.split("\n").length)}
         placeholder="Note"
-        className="w-full resize-none bg-transparent text-[12.5px] leading-snug text-foreground outline-none placeholder:text-muted"
+        className="w-full resize-none bg-transparent text-[11.5px] leading-snug text-muted outline-none placeholder:text-muted/60"
       />
       <div className="flex items-center gap-2">
         {linkEditing || !link.trim() ? (
@@ -3388,7 +3388,7 @@ function TaskDetail({
             }}
             onKeyDown={onKey}
             placeholder="Link (https://…)"
-            className="min-w-0 flex-1 bg-transparent text-[12px] text-foreground outline-none placeholder:text-muted"
+            className="min-w-0 flex-1 bg-transparent text-[11px] text-muted outline-none placeholder:text-muted/60"
           />
         ) : (
           <span className="flex min-w-0 flex-1 items-center">
@@ -3399,7 +3399,7 @@ function TaskDetail({
                 openTaskLink(link);
               }}
               title={link}
-              className="sk-link min-w-0 cursor-pointer truncate text-[12px] text-foreground underline underline-offset-2 hover:opacity-70"
+              className="sk-link min-w-0 cursor-pointer truncate text-[11px] text-muted underline underline-offset-2 hover:text-foreground"
             >
               {link}
             </a>

@@ -3348,17 +3348,36 @@ function TaskDetail({
     save();
     onClose();
   };
+  // 바깥을 눌렀을 때: 내용이 있으면 저장하고 그대로 펼쳐두고, 아무것도 안 적었으면 칸을 없앤다
+  const boxRef = useRef<HTMLDivElement>(null);
+  const latest = useRef({ note, link });
+  latest.current = { note, link };
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (boxRef.current?.contains(t)) return;
+      if (t.closest("[data-detail]")) return; // ≡ 아이콘은 자기가 열고 닫는다
+      // 다 지운 채로 바깥을 누른 경우도 비운 상태로 저장되게
+      if (!latest.current.note.trim() && !latest.current.link.trim()) {
+        onUpdate(task.id, { note: undefined, link: undefined });
+        onClose();
+      }
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [onClose, onUpdate, task.id]);
   const onKey = (e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Escape") close();
-    // 메모칸은 Enter = 줄바꿈, ⌘/Ctrl+Enter = 저장. 링크칸은 Enter = 저장
+    // 메모칸은 Enter = 줄바꿈, ⌘/Ctrl+Enter = 입력 마침. 링크칸은 Enter = 입력 마침
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey || (e.target as HTMLElement).tagName === "INPUT")) {
       e.preventDefault();
-      close();
+      (e.target as HTMLElement).blur();
     }
   };
   return (
     <div
+      ref={boxRef}
       className="sk-detail mb-1.5 ml-[54px] mr-1 flex flex-col gap-1"
       onMouseDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.stopPropagation()}
@@ -3370,7 +3389,8 @@ function TaskDetail({
         onBlur={save}
         onKeyDown={onKey}
         rows={Math.max(1, note.split("\n").length)}
-        placeholder="Note"
+        placeholder="필요한 내용을 정리해요"
+        spellCheck={false}
         className="w-full resize-none bg-transparent text-[11.5px] leading-snug text-muted outline-none placeholder:text-muted/60"
       />
       <div className="flex items-center gap-2">
@@ -3411,25 +3431,6 @@ function TaskDetail({
             />
           </span>
         )}
-        {(note || link) && (
-          <button
-            onClick={() => {
-              setNote("");
-              setLink("");
-              setLinkEditing(true);
-              onUpdate(task.id, { note: undefined, link: undefined });
-            }}
-            className="flex-shrink-0 cursor-pointer text-[11px] text-muted hover:text-danger"
-          >
-            clear
-          </button>
-        )}
-        <button
-          onClick={close}
-          className="flex-shrink-0 cursor-pointer text-[11px] font-bold text-foreground hover:opacity-70"
-        >
-          done
-        </button>
       </div>
     </div>
   );

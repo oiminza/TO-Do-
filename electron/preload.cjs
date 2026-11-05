@@ -54,5 +54,7 @@ contextBridge.exposeInMainWorld("widget", {
   setAlwaysOnTop: (on) => ipcRenderer.send("set-always-on-top", !!on),
   checkUpdate: () => ipcRenderer.invoke("check-update"),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
+  // 할일에 붙인 링크 열기 (http/https만)
+  openLink: (url) => ipcRenderer.invoke("open-link", url),
   calendarEvents: () => ipcRenderer.invoke("calendar-events"),
 });

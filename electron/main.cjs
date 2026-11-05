@@ -540,6 +540,11 @@ ipcMain.handle("open-external", (_e, url) => {
   const u = String(url || "");
   if (/^https:\/\/(github\.com|calendar\.google\.com)\//.test(u)) shell.openExternal(u);
 });
+// 할일에 붙인 링크: 사용자가 직접 넣은 주소라 도메인 제한 없이, 웹 주소(http/https)만 연다.
+ipcMain.handle("open-link", (_e, url) => {
+  const u = String(url || "");
+  if (/^https?:\/\//i.test(u)) shell.openExternal(u);
+});
 ipcMain.handle("check-update", async () => {
   try {
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {

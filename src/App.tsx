@@ -33,6 +33,7 @@ declare global {
       setAlwaysOnTop?: (on: boolean) => void;
       checkUpdate: () => Promise<UpdateInfo>;
       openExternal: (url: string) => Promise<void>;
+      openLink?: (url: string) => Promise<void>;
       calendarEvents: () => Promise<{
         configured: boolean;
         sources?: Array<"google" | "ics">;
@@ -87,6 +88,9 @@ interface Task {
   // 완료할 때 어느 탭에 있었는지. To-do에서 끝낸 일은 그날 자정까지 To-do에 줄 그은 채로 남는다.
   doneFrom?: Status;
   group?: string;
+  // 할일에 붙이는 메모 / 링크 (우클릭 → note / link)
+  note?: string;
+  link?: string;
 }
 
 // 브라우저 미리보기용 목데이터 (Electron에선 구글캘린더 ICS 사용)
@@ -139,6 +143,31 @@ function load(): Task[] {
 // ─── 완료 표시 (직선 / 낙서) ────────────────────────
 type StrikeStyle = "line" | "scribble";
 const StrikeCtx = createContext<StrikeStyle>("line");
+
+// ─── 메모 / 링크 ────────────────────────────────────
+// 지금 메모·링크 편집칸이 펼쳐진 할일 id (한 번에 하나만)
+const DetailCtx = createContext<{ openId: string | null; setOpenId: (id: string | null) => void }>({
+  openId: null,
+  setOpenId: () => {},
+});
+// "naver.com" 처럼 적어도 https:// 를 붙여서 열 수 있게
+const normalizeLink = (v: string) => {
+  const t = v.trim();
+  if (!t) return "";
+  return /^https?:\/\//i.test(t) ? t : `https://${t}`;
+};
+const linkLabel = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+};
+const openTaskLink = (url: string) => {
+  if (!/^https?:\/\//i.test(url)) return;
+  if (isElectron) window.widget?.openLink?.(url);
+  else window.open(url, "_blank", "noopener");
+};
 
 // ─── 스킨 (낙서 / 윈도우) ───────────────────────────────
 // 낙서: 종이 배경 + 손글씨 + 샐뻗한 테두리/선 + 노란 형광펜 탭. <html class="sketch">로 켜짐
@@ -1971,6 +2000,8 @@ export default function App() {
     id: string;
   } | null>(null);
   const ctxTask = ctxMenu ? tasks.find((t) => t.id === ctxMenu.id) : null;
+  // 메모·링크 편집칸이 펼쳐진 할일
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [ctxGroup, setCtxGroup] = useState<{
     x: number;
     y: number;
@@ -2271,6 +2302,7 @@ export default function App() {
   // 패널 (바깥 회색 컨테이너)
   const panelEl = (
     <StrikeCtx.Provider value={strike}>
+    <DetailCtx.Provider value={{ openId: detailId, setOpenId: setDetailId }}>
       <div
         className="sk-outer flex h-[600px] w-[360px] flex-col overflow-hidden rounded-[28px] bg-background-secondary shadow-[0_6px_20px_rgba(0,0,0,0.18)]"
       >
@@ -2900,6 +2932,7 @@ export default function App() {
         </motion.div>
       </div>
       {showSkinPicker && <SkinPickerModal look={look} onLook={setLook} onDone={() => setShowSkinPicker(false)} />}
+    </DetailCtx.Provider>
     </StrikeCtx.Provider>
   );
 
@@ -2933,7 +2966,7 @@ export default function App() {
         <div
           style={{
             left: Math.min(ctxMenu.x, window.innerWidth - 130),
-            top: Math.min(ctxMenu.y, window.innerHeight - 150),
+            top: Math.min(ctxMenu.y, window.innerHeight - 180),
           }}
           className="fixed z-50 w-[120px] rounded-xl border border-border bg-surface py-1 font-mono text-[12px]"
           onMouseDown={(e) => e.stopPropagation()}
@@ -2971,6 +3004,15 @@ export default function App() {
               today
             </button>
           )}
+          <button
+            onClick={() => {
+              setDetailId(ctxTask.id);
+              setCtxMenu(null);
+            }}
+            className="block w-full cursor-pointer px-3 py-1.5 text-left text-foreground hover:bg-background-secondary"
+          >
+            note / link
+          </button>
           {ctxTask.group && (
             <button
               onClick={() => {
@@ -3083,6 +3125,8 @@ function TaskRow({
   const done = task.status === "done";
   const strike = useContext(StrikeCtx);
   const [checking, setChecking] = useState(false);
+  const detail = useContext(DetailCtx);
+  const detailOpen = detail.openId === task.id;
 
   // ── 인라인 편집 ──
   const [editing, setEditing] = useState(false);
@@ -3112,6 +3156,7 @@ function TaskRow({
   };
 
   return (
+    <>
     <div
       onContextMenu={(e) => {
         e.preventDefault();
@@ -3134,7 +3179,7 @@ function TaskRow({
       data-sel-idx={selIdx}
       onMouseDown={(e) => {
         if (e.button !== 0 || editing) return;
-        if ((e.target as HTMLElement).closest("button,input,[data-handle]")) return;
+        if ((e.target as HTMLElement).closest("button,input,[data-handle],[data-detail]")) return;
         e.preventDefault();
         press.current = { x: e.clientX, y: e.clientY };
         if (e.shiftKey) return; // Shift+클릭은 onClick에서 범위 선택 처리
@@ -3142,7 +3187,7 @@ function TaskRow({
       }}
       onClick={(e) => {
         if (editing) return;
-        if ((e.target as HTMLElement).closest("button,input,[data-handle]")) return;
+        if ((e.target as HTMLElement).closest("button,input,[data-handle],[data-detail]")) return;
         if (e.shiftKey) {
           onSelShift?.();
           return;
@@ -3225,6 +3270,7 @@ function TaskRow({
           className="sk-underline min-w-0 flex-1 border-b border-foreground bg-transparent font-mono text-[13.5px] text-foreground outline-none"
         />
       ) : (
+        <span className="flex min-w-0 flex-1 flex-col">
         <span
           className={`relative flex min-w-0 flex-1 cursor-text items-center text-[13.5px] transition-opacity duration-150 group-hover:opacity-70 ${
             done ? "text-muted line-through" : "text-foreground"
@@ -3243,6 +3289,35 @@ function TaskRow({
               ))}
           </span>
         </span>
+        {/* 메모 미리보기 — 누르면 편집칸이 열린다 */}
+        {task.note && !detailOpen && (
+          <span
+            data-detail
+            onClick={() => detail.setOpenId(task.id)}
+            className="sk-note mt-0.5 cursor-pointer truncate text-[11.5px] leading-snug text-muted hover:text-foreground"
+            title={task.note}
+          >
+            {task.note.split("\n")[0]}
+          </span>
+        )}
+        </span>
+      )}
+
+      {/* 링크 — 누르면 브라우저로 열림 */}
+      {task.link && !editing && (
+        <button
+          onClick={() => openTaskLink(task.link!)}
+          title={task.link}
+          aria-label={`링크 열기: ${linkLabel(task.link)}`}
+          className="sk-link flex max-w-[90px] flex-shrink-0 cursor-pointer items-center gap-1 rounded px-1 text-[11px] text-muted hover:text-foreground"
+        >
+          <svg viewBox="0 0 16 16" className="h-3 w-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M6.5 9.5l3-3" />
+            <path d="M7 4.5l1.2-1.2a2.6 2.6 0 013.7 3.7L10.7 8.2" />
+            <path d="M9 11.5l-1.2 1.2a2.6 2.6 0 01-3.7-3.7L5.3 7.8" />
+          </svg>
+          <span className="truncate">{linkLabel(task.link)}</span>
+        </button>
       )}
 
       {carried > 0 && (
@@ -3251,6 +3326,88 @@ function TaskRow({
         </span>
       )}
 
+    </div>
+    {detailOpen && (
+      <TaskDetail task={task} onUpdate={onUpdate} onClose={() => detail.setOpenId(null)} />
+    )}
+    </>
+  );
+}
+
+// 할일 아래에 펼쳐지는 메모 / 링크 편집칸
+function TaskDetail({
+  task,
+  onUpdate,
+  onClose,
+}: {
+  task: Task;
+  onUpdate: (id: string, patch: Partial<Task>) => void;
+  onClose: () => void;
+}) {
+  const [note, setNote] = useState(task.note ?? "");
+  const [link, setLink] = useState(task.link ?? "");
+  const save = () => {
+    const n = note.trim();
+    const l = normalizeLink(link);
+    onUpdate(task.id, { note: n || undefined, link: l || undefined });
+  };
+  const close = () => {
+    save();
+    onClose();
+  };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (e.key === "Escape") close();
+    // 메모칸은 Enter = 줄바꿈, ⌘/Ctrl+Enter = 저장. 링크칸은 Enter = 저장
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey || (e.target as HTMLElement).tagName === "INPUT")) {
+      e.preventDefault();
+      close();
+    }
+  };
+  return (
+    <div
+      className="sk-detail mb-1 ml-6 mr-1 flex flex-col gap-1.5 rounded-lg border border-border p-2"
+      onMouseDown={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.stopPropagation()}
+    >
+      <textarea
+        autoFocus
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        onBlur={save}
+        onKeyDown={onKey}
+        rows={2}
+        placeholder="Note"
+        className="w-full resize-none bg-transparent text-[12.5px] leading-snug text-foreground outline-none placeholder:text-muted"
+      />
+      <div className="flex items-center gap-2 border-t border-border pt-1.5">
+        <input
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+          onBlur={save}
+          onKeyDown={onKey}
+          placeholder="Link (https://…)"
+          className="min-w-0 flex-1 bg-transparent text-[12px] text-foreground outline-none placeholder:text-muted"
+        />
+        {(note || link) && (
+          <button
+            onClick={() => {
+              setNote("");
+              setLink("");
+              onUpdate(task.id, { note: undefined, link: undefined });
+            }}
+            className="flex-shrink-0 cursor-pointer text-[11px] text-muted hover:text-danger"
+          >
+            clear
+          </button>
+        )}
+        <button
+          onClick={close}
+          className="flex-shrink-0 cursor-pointer text-[11px] font-bold text-foreground hover:opacity-70"
+        >
+          done
+        </button>
+      </div>
     </div>
   );
 }

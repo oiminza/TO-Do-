@@ -156,13 +156,6 @@ const normalizeLink = (v: string) => {
   if (!t) return "";
   return /^https?:\/\//i.test(t) ? t : `https://${t}`;
 };
-const linkLabel = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-};
 const openTaskLink = (url: string) => {
   if (!/^https?:\/\//i.test(url)) return;
   if (isElectron) window.widget?.openLink?.(url);
@@ -3289,34 +3282,32 @@ function TaskRow({
               ))}
           </span>
         </span>
-        {/* 메모 미리보기 — 누르면 편집칸이 열린다 */}
-        {task.note && !detailOpen && (
-          <span
-            data-detail
-            onClick={() => detail.setOpenId(task.id)}
-            className="sk-note mt-0.5 cursor-pointer truncate text-[11.5px] leading-snug text-muted hover:text-foreground"
-            title={task.note}
-          >
-            {task.note.split("\n")[0]}
-          </span>
-        )}
         </span>
       )}
 
-      {/* 링크 — 누르면 브라우저로 열림 */}
-      {task.link && !editing && (
+      {/* 메모·링크가 있으면 작은 아이콘만 — 누르면 안쪽 편집칸이 열리고 닫힌다 */}
+      {(task.note || task.link) && !editing && (
         <button
-          onClick={() => openTaskLink(task.link!)}
-          title={task.link}
-          aria-label={`링크 열기: ${linkLabel(task.link)}`}
-          className="sk-link flex max-w-[90px] flex-shrink-0 cursor-pointer items-center gap-1 rounded px-1 text-[11px] text-muted hover:text-foreground"
+          data-detail
+          onClick={() => detail.setOpenId(detailOpen ? null : task.id)}
+          title={[task.note, task.link].filter(Boolean).join("\n")}
+          aria-label="메모·링크 보기"
+          aria-expanded={detailOpen}
+          className={`sk-detail-btn flex h-5 w-5 flex-shrink-0 cursor-pointer items-center justify-center rounded text-muted hover:text-foreground ${
+            detailOpen ? "text-foreground" : ""
+          }`}
         >
-          <svg viewBox="0 0 16 16" className="h-3 w-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-            <path d="M6.5 9.5l3-3" />
-            <path d="M7 4.5l1.2-1.2a2.6 2.6 0 013.7 3.7L10.7 8.2" />
-            <path d="M9 11.5l-1.2 1.2a2.6 2.6 0 01-3.7-3.7L5.3 7.8" />
-          </svg>
-          <span className="truncate">{linkLabel(task.link)}</span>
+          {task.note ? (
+            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <path d="M3 4.5h10M3 8h10M3 11.5h6" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <path d="M6.5 9.5l3-3" />
+              <path d="M7 4.5l1.2-1.2a2.6 2.6 0 013.7 3.7L10.7 8.2" />
+              <path d="M9 11.5l-1.2 1.2a2.6 2.6 0 01-3.7-3.7L5.3 7.8" />
+            </svg>
+          )}
         </button>
       )}
 
@@ -3389,6 +3380,15 @@ function TaskDetail({
           placeholder="Link (https://…)"
           className="min-w-0 flex-1 bg-transparent text-[12px] text-foreground outline-none placeholder:text-muted"
         />
+        {link.trim() && (
+          <button
+            onClick={() => openTaskLink(normalizeLink(link))}
+            title={normalizeLink(link)}
+            className="flex-shrink-0 cursor-pointer text-[11px] text-muted hover:text-foreground"
+          >
+            open ↗
+          </button>
+        )}
         {(note || link) && (
           <button
             onClick={() => {

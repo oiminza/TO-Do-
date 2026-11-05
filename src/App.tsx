@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs } from "@heroui/react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
@@ -145,10 +145,10 @@ type StrikeStyle = "line" | "scribble";
 const StrikeCtx = createContext<StrikeStyle>("line");
 
 // ─── 메모 / 링크 ────────────────────────────────────
-// 지금 메모·링크 편집칸이 펼쳐진 할일 id (한 번에 하나만)
-const DetailCtx = createContext<{ openId: string | null; setOpenId: (id: string | null) => void }>({
-  openId: null,
-  setOpenId: () => {},
+// 메모칸이 펼쳐진 할일 id들 (여러 개 동시에 펼칠 수 있음)
+const DetailCtx = createContext<{ openIds: Set<string>; setOpen: (id: string, open: boolean) => void }>({
+  openIds: new Set(),
+  setOpen: () => {},
 });
 // "naver.com" 처럼 적어도 https:// 를 붙여서 열 수 있게
 const normalizeLink = (v: string) => {
@@ -1994,7 +1994,16 @@ export default function App() {
   } | null>(null);
   const ctxTask = ctxMenu ? tasks.find((t) => t.id === ctxMenu.id) : null;
   // 메모·링크 편집칸이 펼쳐진 할일
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailIds, setDetailIds] = useState<Set<string>>(() => new Set());
+  const setDetailOpen = useCallback((id: string, open: boolean) => {
+    setDetailIds((prev) => {
+      if (prev.has(id) === open) return prev;
+      const next = new Set(prev);
+      if (open) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
   const [ctxGroup, setCtxGroup] = useState<{
     x: number;
     y: number;
@@ -2295,7 +2304,7 @@ export default function App() {
   // 패널 (바깥 회색 컨테이너)
   const panelEl = (
     <StrikeCtx.Provider value={strike}>
-    <DetailCtx.Provider value={{ openId: detailId, setOpenId: setDetailId }}>
+    <DetailCtx.Provider value={{ openIds: detailIds, setOpen: setDetailOpen }}>
       <div
         className="sk-outer flex h-[600px] w-[360px] flex-col overflow-hidden rounded-[28px] bg-background-secondary shadow-[0_6px_20px_rgba(0,0,0,0.18)]"
       >
@@ -2999,7 +3008,7 @@ export default function App() {
           )}
           <button
             onClick={() => {
-              setDetailId(ctxTask.id);
+              setDetailOpen(ctxTask.id, true);
               setCtxMenu(null);
             }}
             className="block w-full cursor-pointer px-3 py-1.5 text-left text-foreground hover:bg-background-secondary"
@@ -3119,7 +3128,7 @@ function TaskRow({
   const strike = useContext(StrikeCtx);
   const [checking, setChecking] = useState(false);
   const detail = useContext(DetailCtx);
-  const detailOpen = detail.openId === task.id;
+  const detailOpen = detail.openIds.has(task.id);
 
   // ── 인라인 편집 ──
   const [editing, setEditing] = useState(false);
@@ -3190,6 +3199,8 @@ function TaskRow({
           Math.abs(e.clientX - press.current.x) +
           Math.abs(e.clientY - press.current.y);
         if (moved > 4) return;
+        // 제목 글자 위를 눌렀을 때만 수정 (줄 끝 빈 곳은 메모 아이콘과 겹치지 않게 비워둔다)
+        if (!(e.target as HTMLElement).closest("[data-title]")) return;
         setDraft(task.title);
         setEditing(true);
       }}
@@ -3265,12 +3276,12 @@ function TaskRow({
       ) : (
         <span className="flex min-w-0 flex-1 flex-col">
         <span
-          className={`relative flex min-w-0 flex-1 cursor-text items-center text-[13.5px] transition-opacity duration-150 group-hover:opacity-70 ${
+          className={`relative flex min-w-0 flex-1 items-center text-[13.5px] transition-opacity duration-150 group-hover:opacity-70 ${
             done ? "text-muted line-through" : "text-foreground"
           }`}
         >
           {/* 글자 폭만큼만 선이 그어지도록 텍스트를 inline-block으로 감쌈 */}
-          <span className="relative -my-[7px] line-clamp-2 inline-block max-w-full break-words py-[7px] leading-snug">
+          <span data-title className="relative -my-[7px] line-clamp-2 inline-block max-w-full cursor-text break-words py-[7px] leading-snug">
             {task.flag && <span className="mr-1 font-bold text-danger">!</span>}
             {task.title}
             {/* 체크 중에만 선 그어지는 연출 (직선/낙서) — 완료 후엔 일반 취소선 */}
@@ -3289,24 +3300,39 @@ function TaskRow({
       {(task.note || task.link) && !editing && (
         <button
           data-detail
-          onClick={() => detail.setOpenId(detailOpen ? null : task.id)}
+          onClick={() => detail.setOpen(task.id, !detailOpen)}
           title={[task.note, task.link].filter(Boolean).join("\n")}
           aria-label="메모·링크 보기"
           aria-expanded={detailOpen}
-          className={`sk-detail-btn flex h-5 w-5 flex-shrink-0 cursor-pointer items-center justify-center rounded text-muted hover:text-foreground ${
+          className={`sk-detail-btn ml-3 flex h-5 w-5 flex-shrink-0 cursor-pointer items-center justify-center rounded text-muted hover:text-foreground ${
             detailOpen ? "text-foreground" : ""
           }`}
         >
           {task.note ? (
-            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-              <path d="M3 4.5h10M3 8h10M3 11.5h6" />
-            </svg>
+            <>
+              <svg viewBox="0 0 16 16" className="ico-plain h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <path d="M3 4.5h10M3 8h10M3 11.5h6" />
+              </svg>
+              {/* 낙서 스킨: 손으로 그은 듯 삐뚤빼뚤한 줄 */}
+              <svg viewBox="0 0 16 16" className="ico-sketch h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2.4 5.2c1-.9 2-.1 3.1-.5 1.2-.5 2 .5 3.3 0 1.1-.4 2.2-.1 4.4-.3" />
+                <path d="M2.1 8.6c.9-.5 1.9.4 3.2-.1 1.3-.6 2.2.4 3.5 0 1.2-.4 2.3.3 3.7-.3" />
+                <path d="M2.7 12.1c.8-.7 1.8.2 2.9-.3 1-.5 2 .4 3.6-.2" />
+              </svg>
+            </>
           ) : (
-            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-              <path d="M6.5 9.5l3-3" />
-              <path d="M7 4.5l1.2-1.2a2.6 2.6 0 013.7 3.7L10.7 8.2" />
-              <path d="M9 11.5l-1.2 1.2a2.6 2.6 0 01-3.7-3.7L5.3 7.8" />
-            </svg>
+            <>
+              <svg viewBox="0 0 16 16" className="ico-plain h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <path d="M6.5 9.5l3-3" />
+                <path d="M7 4.5l1.2-1.2a2.6 2.6 0 013.7 3.7L10.7 8.2" />
+                <path d="M9 11.5l-1.2 1.2a2.6 2.6 0 01-3.7-3.7L5.3 7.8" />
+              </svg>
+              <svg viewBox="0 0 16 16" className="ico-sketch h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 10.2c.8-.5 1.4-1.4 2.2-2.1.5-.5.9-1 1.5-1.6" />
+                <path d="M7.1 4.9c.4-.9 1.3-1.9 2.4-2.1 1.4-.3 2.9.6 3 2 .1 1.2-.6 2-1.4 2.8l-1 .7" />
+                <path d="M8.9 11.3c-.3.9-1.1 1.8-2.2 2-1.5.3-3-.6-3.1-2-.1-1.1.7-2 1.5-2.7l.9-.8" />
+              </svg>
+            </>
           )}
         </button>
       )}
@@ -3319,7 +3345,7 @@ function TaskRow({
 
     </div>
     {detailOpen && (
-      <TaskDetail task={task} onUpdate={onUpdate} onClose={() => detail.setOpenId(null)} />
+      <TaskDetail task={task} onUpdate={onUpdate} onClose={() => detail.setOpen(task.id, false)} />
     )}
     </>
   );

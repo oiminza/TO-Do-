@@ -3004,7 +3004,7 @@ export default function App() {
             }}
             className="block w-full cursor-pointer px-3 py-1.5 text-left text-foreground hover:bg-background-secondary"
           >
-            note / link
+            note
           </button>
           {ctxTask.group && (
             <button
@@ -3325,7 +3325,35 @@ function TaskRow({
   );
 }
 
-// 할일 아래에 펼쳐지는 메모 / 링크 편집칸
+// 메모 속 웹 주소(https://… 또는 www.…)를 밑줄 링크로 바꿔 보여준다
+const URL_RE = /((?:https?:\/\/|www\.)[^\s]+)/gi;
+function LinkifiedText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(URL_RE).map((part, i) =>
+        i % 2 === 1 ? (
+          <a
+            key={i}
+            href={normalizeLink(part)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openTaskLink(normalizeLink(part));
+            }}
+            title={normalizeLink(part)}
+            className="sk-link cursor-pointer break-all underline underline-offset-2 hover:text-foreground"
+          >
+            {part}
+          </a>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+// 할일 아래에 펼쳐지는 메모칸 (주소를 적으면 알아서 링크가 된다)
 function TaskDetail({
   task,
   onUpdate,
@@ -3335,102 +3363,79 @@ function TaskDetail({
   onUpdate: (id: string, patch: Partial<Task>) => void;
   onClose: () => void;
 }) {
-  const [note, setNote] = useState(task.note ?? "");
-  const [link, setLink] = useState(task.link ?? "");
-  // 링크가 있으면 밑줄 글자로 보여주고(누르면 이동), 옆 빈 곳을 누르면 고칠 수 있게 입력칸으로 바뀐다
-  const [linkEditing, setLinkEditing] = useState(!task.link);
-  const save = () => {
-    const n = note.trim();
-    const l = normalizeLink(link);
-    onUpdate(task.id, { note: n || undefined, link: l || undefined });
-  };
-  const close = () => {
-    save();
-    onClose();
-  };
-  // 바깥을 눌렀을 때: 내용이 있으면 저장하고 그대로 펼쳐두고, 아무것도 안 적었으면 칸을 없앤다
+  // 예전에 링크를 따로 저장했던 할일은 메모 끝에 합쳐서 보여준다
+  const initial = [task.note, task.link].filter(Boolean).join("\n");
+  const [note, setNote] = useState(initial);
+  // 내용이 있으면 읽기 모드(링크 누를 수 있음), 글자를 누르면 고치기 모드
+  const [editing, setEditing] = useState(!initial);
+  const latest = useRef(note);
+  latest.current = note;
   const boxRef = useRef<HTMLDivElement>(null);
-  const latest = useRef({ note, link });
-  latest.current = { note, link };
+
+  const save = () => {
+    const n = latest.current.trim();
+    onUpdate(task.id, { note: n || undefined, link: undefined });
+    return n;
+  };
+  const finish = () => {
+    if (save()) setEditing(false);
+    else onClose();
+  };
+
+  // 바깥을 누르면: 내용이 있으면 저장하고 그대로 두고, 비어 있으면 칸을 없앤다
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
       if (boxRef.current?.contains(t)) return;
       if (t.closest("[data-detail]")) return; // ≡ 아이콘은 자기가 열고 닫는다
-      // 다 지운 채로 바깥을 누른 경우도 비운 상태로 저장되게
-      if (!latest.current.note.trim() && !latest.current.link.trim()) {
-        onUpdate(task.id, { note: undefined, link: undefined });
-        onClose();
-      }
+      finish();
     };
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
-  }, [onClose, onUpdate, task.id]);
-  const onKey = (e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
-    if (e.key === "Escape") close();
-    // 메모칸은 Enter = 줄바꿈, ⌘/Ctrl+Enter = 입력 마침. 링크칸은 Enter = 입력 마침
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey || (e.target as HTMLElement).tagName === "INPUT")) {
-      e.preventDefault();
-      (e.target as HTMLElement).blur();
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task.id]);
+
   return (
     <div
       ref={boxRef}
-      className="sk-detail mb-1.5 ml-[54px] mr-1 flex flex-col gap-1"
+      className="sk-detail mb-1.5 ml-[54px] mr-1 text-[11.5px] leading-snug text-muted"
       onMouseDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.stopPropagation()}
     >
-      <textarea
-        autoFocus
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        onBlur={save}
-        onKeyDown={onKey}
-        rows={Math.max(1, note.split("\n").length)}
-        placeholder="필요한 내용을 정리해요"
-        spellCheck={false}
-        className="w-full resize-none bg-transparent text-[11.5px] leading-snug text-muted outline-none placeholder:text-muted/60"
-      />
-      <div className="flex items-center gap-2">
-        {linkEditing || !link.trim() ? (
-          <input
-            autoFocus={linkEditing && !!task.link}
-            value={link}
-            onChange={(e) => setLink(e.target.value)}
-            onBlur={() => {
-              save();
-              if (link.trim()) {
-                setLink(normalizeLink(link));
-                setLinkEditing(false);
-              }
-            }}
-            onKeyDown={onKey}
-            className="min-w-0 flex-1 bg-transparent text-[11px] text-muted outline-none placeholder:text-muted/60"
-          />
-        ) : (
-          <span className="flex min-w-0 flex-1 items-center">
-            <a
-              href={link}
-              onClick={(e) => {
-                e.preventDefault();
-                openTaskLink(link);
-              }}
-              title={link}
-              className="sk-link min-w-0 cursor-pointer truncate text-[11px] text-muted underline underline-offset-2 hover:text-foreground"
-            >
-              {link}
-            </a>
-            {/* 링크 옆 빈 곳 = 고치기 */}
-            <button
-              onClick={() => setLinkEditing(true)}
-              aria-label="링크 고치기"
-              className="h-5 min-w-4 flex-1 cursor-text"
-            />
-          </span>
-        )}
-      </div>
+      {editing ? (
+        <textarea
+          autoFocus
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          onFocus={(e) => {
+            const el = e.currentTarget;
+            el.setSelectionRange(el.value.length, el.value.length);
+          }}
+          onBlur={() => save()}
+          onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+            // Enter = 줄바꿈, ⌘/Ctrl+Enter 또는 Esc = 입력 마침
+            if (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey))) {
+              e.preventDefault();
+              if (e.key === "Escape") {
+                save();
+                onClose();
+              } else finish();
+            }
+          }}
+          rows={Math.max(1, note.split("\n").length)}
+          placeholder="필요한 내용을 정리해요"
+          spellCheck={false}
+          className="block w-full resize-none bg-transparent text-muted outline-none placeholder:text-muted/60"
+        />
+      ) : (
+        <div
+          onClick={() => setEditing(true)}
+          className="cursor-text whitespace-pre-wrap break-words"
+        >
+          <LinkifiedText text={note} />
+        </div>
+      )}
     </div>
   );
 }

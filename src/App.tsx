@@ -3407,7 +3407,6 @@ function TaskDetail({
               }
             }}
             onKeyDown={onKey}
-            placeholder="Link (https://…)"
             className="min-w-0 flex-1 bg-transparent text-[11px] text-muted outline-none placeholder:text-muted/60"
           />
         ) : (

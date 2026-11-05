@@ -3337,6 +3337,8 @@ function TaskDetail({
 }) {
   const [note, setNote] = useState(task.note ?? "");
   const [link, setLink] = useState(task.link ?? "");
+  // 링크가 있으면 밑줄 글자로 보여주고(누르면 이동), 옆 빈 곳을 누르면 고칠 수 있게 입력칸으로 바뀐다
+  const [linkEditing, setLinkEditing] = useState(!task.link);
   const save = () => {
     const n = note.trim();
     const l = normalizeLink(link);
@@ -3357,7 +3359,7 @@ function TaskDetail({
   };
   return (
     <div
-      className="sk-detail mb-1 ml-6 mr-1 flex flex-col gap-1.5 rounded-lg border border-border p-2"
+      className="sk-detail mb-1.5 ml-[54px] mr-1 flex flex-col gap-1"
       onMouseDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.stopPropagation()}
     >
@@ -3367,33 +3369,54 @@ function TaskDetail({
         onChange={(e) => setNote(e.target.value)}
         onBlur={save}
         onKeyDown={onKey}
-        rows={2}
+        rows={Math.max(1, note.split("\n").length)}
         placeholder="Note"
         className="w-full resize-none bg-transparent text-[12.5px] leading-snug text-foreground outline-none placeholder:text-muted"
       />
-      <div className="flex items-center gap-2 border-t border-border pt-1.5">
-        <input
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-          onBlur={save}
-          onKeyDown={onKey}
-          placeholder="Link (https://…)"
-          className="min-w-0 flex-1 bg-transparent text-[12px] text-foreground outline-none placeholder:text-muted"
-        />
-        {link.trim() && (
-          <button
-            onClick={() => openTaskLink(normalizeLink(link))}
-            title={normalizeLink(link)}
-            className="flex-shrink-0 cursor-pointer text-[11px] text-muted hover:text-foreground"
-          >
-            open ↗
-          </button>
+      <div className="flex items-center gap-2">
+        {linkEditing || !link.trim() ? (
+          <input
+            autoFocus={linkEditing && !!task.link}
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            onBlur={() => {
+              save();
+              if (link.trim()) {
+                setLink(normalizeLink(link));
+                setLinkEditing(false);
+              }
+            }}
+            onKeyDown={onKey}
+            placeholder="Link (https://…)"
+            className="min-w-0 flex-1 bg-transparent text-[12px] text-foreground outline-none placeholder:text-muted"
+          />
+        ) : (
+          <span className="flex min-w-0 flex-1 items-center">
+            <a
+              href={link}
+              onClick={(e) => {
+                e.preventDefault();
+                openTaskLink(link);
+              }}
+              title={link}
+              className="sk-link min-w-0 cursor-pointer truncate text-[12px] text-foreground underline underline-offset-2 hover:opacity-70"
+            >
+              {link}
+            </a>
+            {/* 링크 옆 빈 곳 = 고치기 */}
+            <button
+              onClick={() => setLinkEditing(true)}
+              aria-label="링크 고치기"
+              className="h-5 min-w-4 flex-1 cursor-text"
+            />
+          </span>
         )}
         {(note || link) && (
           <button
             onClick={() => {
               setNote("");
               setLink("");
+              setLinkEditing(true);
               onUpdate(task.id, { note: undefined, link: undefined });
             }}
             className="flex-shrink-0 cursor-pointer text-[11px] text-muted hover:text-danger"

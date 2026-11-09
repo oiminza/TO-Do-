@@ -3344,12 +3344,10 @@ function TaskRow({
         )}
       </span>
       {/* 날짜(+Nd)는 맨 끝. 칸 폭을 고정해서(+12d·+120d처럼 길어져도) 메모 아이콘이 항상 같은 자리에 있게.
-          Today 목록에선 날짜가 없는 줄도 칸을 비워 둔다 */}
-      {(carried > 0 || task.status === "todo") && (
-        <span className="-ml-2.5 w-[30px] flex-shrink-0 whitespace-nowrap text-left text-[11px] text-warning">
-          {carried > 0 && `+${carried}d`}
-        </span>
-      )}
+          날짜가 없는 줄(완료한 일 등)도 칸을 비워 둔다 */}
+      <span className="-ml-2.5 w-[30px] flex-shrink-0 whitespace-nowrap text-left text-[11px] text-warning">
+        {carried > 0 && `+${carried}d`}
+      </span>
 
     </div>
     {detailOpen && (

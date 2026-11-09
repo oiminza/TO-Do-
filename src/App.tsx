@@ -3239,14 +3239,21 @@ function TaskRow({
           ⠿
         </span>
       )}
-      {/* 메모가 있다는 표시: 체크박스 왼쪽 여백의 작은 점 (마우스를 올리면 드래그 손잡이에 자리를 내줌) */}
+      {/* 메모가 있다는 표시: 체크박스 왼쪽 여백의 작은 점 — 누르면 메모가 펼쳐지고 접힌다.
+          드래그 손잡이(⠿, 맨 왼쪽)와 겹치지 않게 체크박스 쪽으로 붙여 둔다 */}
       {hasNote && (
-        <span
-          aria-hidden
-          className={`sk-note-dot pointer-events-none absolute left-[11px] top-1/2 h-[4px] w-[4px] -translate-y-1/2 rounded-full transition-opacity ${
-            detailOpen ? "bg-foreground/50" : "bg-muted"
-          } ${drag ? "group-hover:opacity-0" : ""}`}
-        />
+        <button
+          onClick={() => detail.setOpen(task.id, !detailOpen)}
+          aria-label={detailOpen ? "메모 접기" : "메모 펼치기"}
+          aria-expanded={detailOpen}
+          className="sk-note-dot group/dot absolute left-[11px] top-1/2 flex h-4 w-3 -translate-y-1/2 cursor-pointer items-center justify-center"
+        >
+          <span
+            className={`block h-[4px] w-[4px] rounded-full transition-transform group-hover/dot:scale-150 ${
+              detailOpen ? "bg-foreground/60" : "bg-muted"
+            }`}
+          />
+        </button>
       )}
       <button
         role="checkbox"

@@ -3131,9 +3131,6 @@ function TaskRow({
   // 메모는 접혀 있다가 줄의 빈 곳을 누르면 펼쳐진다 (우클릭 → note 로 새로 쓸 때도 펼쳐짐)
   const hasNote = !!(task.note || task.link);
   const detailOpen = detail.openIds.has(task.id);
-  const titleChars = Array.from(task.title);
-  const titleHead = titleChars.slice(0, -1).join("");
-  const titleTail = titleChars.slice(-1).join("");
 
   // ── 인라인 편집 ──
   const [editing, setEditing] = useState(false);
@@ -3291,30 +3288,7 @@ function TaskRow({
           {/* 글자 폭만큼만 선이 그어지도록 텍스트를 inline-block으로 감쌈 */}
           <span data-title className="relative -my-[7px] line-clamp-2 inline-block min-w-0 max-w-full cursor-text break-words py-[7px] leading-snug">
             {task.flag && <span className="mr-1 font-bold text-danger">!</span>}
-            {/* 메모가 있으면 제목 끝에 작은 점 — 누르면 메모가 펼쳐지고 접힌다.
-                마지막 글자와 점을 한 덩어리로 묶어서, 점만 혼자 다음 줄로 넘어가지 않게 한다 */}
-            {hasNote && !editing ? (
-              <>
-                {titleHead}
-                <span className="whitespace-nowrap">
-                  {titleTail}
-                  <button
-                    onClick={() => detail.setOpen(task.id, !detailOpen)}
-                    aria-label={detailOpen ? "메모 접기" : "메모 펼치기"}
-                    aria-expanded={detailOpen}
-                    className="sk-note-dot group/dot relative ml-[3px] inline-flex h-[1.1em] w-3 cursor-pointer items-start justify-center pt-[3px] align-top"
-                  >
-                    <span
-                      className={`block h-[5px] w-[5px] rounded-full transition-transform group-hover/dot:scale-125 ${
-                        detailOpen ? "bg-foreground/60" : "bg-muted"
-                      }`}
-                    />
-                  </button>
-                </span>
-              </>
-            ) : (
-              task.title
-            )}
+            {task.title}
           {/* 메모가 있으면 제목 끝에 작은 점 (각주 표시처럼) — 누르면 메모칸이 열리고 닫힌다 */}
             {/* 체크 중에만 선 그어지는 연출 (직선/낙서) — 완료 후엔 일반 취소선 */}
             {checking &&
@@ -3333,6 +3307,24 @@ function TaskRow({
           +{carried}d
         </span>
       )}
+
+      {/* 메모 점: 제목 길이와 상관없이 줄 오른쪽 끝 고정 칸. 메모가 없는 줄도 칸은 비워 둬서 +Nd 위치가 줄마다 같게 */}
+      <span className="-ml-1.5 flex w-3 flex-shrink-0 items-center justify-center">
+        {hasNote && !editing && (
+          <button
+            onClick={() => detail.setOpen(task.id, !detailOpen)}
+            aria-label={detailOpen ? "메모 접기" : "메모 펼치기"}
+            aria-expanded={detailOpen}
+            className="sk-note-dot group/dot flex h-5 w-3 cursor-pointer items-center justify-center"
+          >
+            <span
+              className={`block h-[5px] w-[5px] rounded-full transition-transform group-hover/dot:scale-125 ${
+                detailOpen ? "bg-foreground/60" : "bg-muted"
+              }`}
+            />
+          </button>
+        )}
+      </span>
 
     </div>
     {detailOpen && (

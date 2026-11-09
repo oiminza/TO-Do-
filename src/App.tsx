@@ -1922,7 +1922,8 @@ export default function App() {
     finishSel();
   };
   const isSelIdx = (i: number) => {
-    if (!sel) return false;
+    // 한 줄만 누르고 있을 땐 배경을 칠하지 않는다 (클릭할 때 깜빡임 방지). 두 줄 이상 끌어서 고를 때만 표시
+    if (!sel || sel.anchor === sel.head) return false;
     const a = Math.min(sel.anchor, sel.head);
     const b = Math.max(sel.anchor, sel.head);
     return i >= a && i <= b;

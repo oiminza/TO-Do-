@@ -3128,9 +3128,14 @@ function TaskRow({
   const strike = useContext(StrikeCtx);
   const [checking, setChecking] = useState(false);
   const detail = useContext(DetailCtx);
-  // 메모는 접혀 있다가 줄의 빈 곳을 누르면 펼쳐진다 (우클릭 → note 로 새로 쓸 때도 펼쳐짐)
-  const hasNote = !!(task.note || task.link);
+  // 메모는 접혀 있다가 할일 줄을 한 번 누르면 펼쳐진다 (두 번 누르면 제목 수정)
   const detailOpen = detail.openIds.has(task.id);
+  const detailOpenRef = useRef(detailOpen);
+  detailOpenRef.current = detailOpen;
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (clickTimer.current) clearTimeout(clickTimer.current);
+  }, []);
 
   // ── 인라인 편집 ──
   const [editing, setEditing] = useState(false);
@@ -3181,6 +3186,7 @@ function TaskRow({
         drag.onDrop();
       }}
       data-sel-idx={selIdx}
+      data-row={task.id}
       onMouseDown={(e) => {
         if (e.button !== 0 || editing) return;
         if ((e.target as HTMLElement).closest("button,input,[data-handle]")) return;
@@ -3201,16 +3207,25 @@ function TaskRow({
           Math.abs(e.clientX - press.current.x) +
           Math.abs(e.clientY - press.current.y);
         if (moved > 4) return;
-        // 제목 글자 위 = 제목 수정, 줄의 빈 곳 = 메모 펼치기/접기
-        if (!(e.target as HTMLElement).closest("[data-title]")) {
-          if (hasNote) detail.setOpen(task.id, !detailOpen);
-          return;
-        }
+        // 한 번 클릭 = 메모 펼치기/접기, 두 번 클릭 = 제목 수정.
+        // 두 번 클릭할 때 메모가 열렸다 닫혔다 깜빡이지 않게, 첫 클릭은 잠깐 기다렸다가 처리한다
+        if (clickTimer.current) clearTimeout(clickTimer.current);
+        if (e.detail >= 2) return;
+        clickTimer.current = setTimeout(() => {
+          clickTimer.current = null;
+          detail.setOpen(task.id, !detailOpenRef.current);
+        }, 220);
+      }}
+      onDoubleClick={(e) => {
+        if (editing) return;
+        if ((e.target as HTMLElement).closest("button,input,[data-handle]")) return;
+        if (clickTimer.current) clearTimeout(clickTimer.current);
+        clickTimer.current = null;
         setDraft(task.title);
         setEditing(true);
       }}
       onMouseEnter={() => onSelEnter?.()}
-      className={`group relative flex select-none items-center gap-3 rounded-lg py-[7px] pr-1 ${hasNote ? "cursor-pointer" : ""} ${
+      className={`group relative flex select-none items-center gap-3 rounded-lg py-[7px] pr-1 cursor-pointer ${
         drag || indent ? "pl-4" : "pl-1.5" /* 드래그 손잡이(⠿) 자리가 필요한 행만 들여쓰기 (글씨 자리 확보를 위해 좁게) */
       } ${selected ? "sk-selected bg-background-secondary" : ""} ${checking ? "animate-wiggle" : ""}`}
     >
@@ -3286,7 +3301,7 @@ function TaskRow({
           }`}
         >
           {/* 글자 폭만큼만 선이 그어지도록 텍스트를 inline-block으로 감쌈 */}
-          <span data-title className="relative -my-[7px] line-clamp-2 inline-block min-w-0 max-w-full cursor-text break-words py-[7px] leading-snug">
+          <span data-title className="relative -my-[7px] line-clamp-2 inline-block min-w-0 max-w-full break-words py-[7px] leading-snug">
             {task.flag && <span className="mr-1 font-bold text-danger">!</span>}
             {task.title}
           {/* 메모가 있으면 제목 끝에 작은 점 (각주 표시처럼) — 누르면 메모칸이 열리고 닫힌다 */}
@@ -3362,12 +3377,16 @@ function TaskDetail({
   const latest = useRef(note);
   latest.current = note;
   const boxRef = useRef<HTMLDivElement>(null);
+  // 접혀서 사라질 때도 쓰던 내용은 저장
+  const saveRef = useRef<() => void>(() => {});
+  useEffect(() => () => saveRef.current(), []);
 
   const save = () => {
     const n = latest.current.trim();
     onUpdate(task.id, { note: n || undefined, link: undefined });
     return n;
   };
+  saveRef.current = save;
   const finish = () => {
     if (save()) setEditing(false);
     else onClose();
@@ -3378,6 +3397,8 @@ function TaskDetail({
     if (!editing) return;
     const onDown = (e: MouseEvent) => {
       if (boxRef.current?.contains(e.target as Node)) return;
+      // 자기 할일 줄을 누른 건 그 줄의 클릭(펼치기/접기)이 처리한다
+      if ((e.target as HTMLElement).closest(`[data-row="${task.id}"]`)) return;
       finish();
     };
     window.addEventListener("mousedown", onDown);

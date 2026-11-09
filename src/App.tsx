@@ -3302,52 +3302,11 @@ function TaskRow({
         </span>
       )}
 
-      {/* 메모 아이콘: 제목 길이와 상관없이 줄 오른쪽 끝 고정 칸 — 누르면 메모가 펼쳐지고 접힌다.
-          메모가 없는 줄도 칸은 비워 둬서 아이콘 위치가 줄마다 같게. 날짜(+Nd)는 맨 끝 */}
-      <span className="flex w-5 flex-shrink-0 items-center justify-center">
-        {hasNote && !editing && (
-          <button
-            onClick={() => detail.setOpen(task.id, !detailOpen)}
-            aria-label={detailOpen ? "메모 접기" : "메모 펼치기"}
-            aria-expanded={detailOpen}
-            className={`sk-detail-btn flex h-5 w-5 cursor-pointer items-center justify-center rounded hover:text-foreground ${
-              detailOpen ? "text-foreground" : "text-muted"
-            }`}
-          >
-              {task.note ? (
-                <>
-                  <svg viewBox="0 0 16 16" className="ico-plain h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                    <path d="M3 4.5h10M3 8h10M3 11.5h6" />
-                  </svg>
-                  {/* 낙서 스킨: 손으로 그은 듯 삐뚤빼뚤한 줄 */}
-                  <svg viewBox="0 0 16 16" className="ico-sketch h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2.4 5.2c1-.9 2-.1 3.1-.5 1.2-.5 2 .5 3.3 0 1.1-.4 2.2-.1 4.4-.3" />
-                    <path d="M2.1 8.6c.9-.5 1.9.4 3.2-.1 1.3-.6 2.2.4 3.5 0 1.2-.4 2.3.3 3.7-.3" />
-                    <path d="M2.7 12.1c.8-.7 1.8.2 2.9-.3 1-.5 2 .4 3.6-.2" />
-                  </svg>
-                </>
-              ) : (
-                <>
-                  <svg viewBox="0 0 16 16" className="ico-plain h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                    <path d="M6.5 9.5l3-3" />
-                    <path d="M7 4.5l1.2-1.2a2.6 2.6 0 013.7 3.7L10.7 8.2" />
-                    <path d="M9 11.5l-1.2 1.2a2.6 2.6 0 01-3.7-3.7L5.3 7.8" />
-                  </svg>
-                  <svg viewBox="0 0 16 16" className="ico-sketch h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6 10.2c.8-.5 1.4-1.4 2.2-2.1.5-.5.9-1 1.5-1.6" />
-                    <path d="M7.1 4.9c.4-.9 1.3-1.9 2.4-2.1 1.4-.3 2.9.6 3 2 .1 1.2-.6 2-1.4 2.8l-1 .7" />
-                    <path d="M8.9 11.3c-.3.9-1.1 1.8-2.2 2-1.5.3-3-.6-3.1-2-.1-1.1.7-2 1.5-2.7l.9-.8" />
-                  </svg>
-                </>
-              )}
-          </button>
-        )}
-      </span>
-      {/* 날짜(+Nd)는 맨 끝. 칸 폭을 고정해서(+12d·+120d처럼 길어져도) 메모 아이콘이 항상 같은 자리에 있게.
-          날짜가 없는 줄(완료한 일 등)도 칸을 비워 둔다 */}
-      <span className="-ml-2.5 w-[30px] flex-shrink-0 whitespace-nowrap text-left text-[11px] text-warning">
-        {carried > 0 && `+${carried}d`}
-      </span>
+      {carried > 0 && (
+        <span className="flex-shrink-0 text-[11px] text-warning">
+          +{carried}d
+        </span>
+      )}
 
     </div>
     {detailOpen && (

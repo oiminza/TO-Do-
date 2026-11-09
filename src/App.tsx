@@ -2763,13 +2763,13 @@ export default function App() {
                   {isElectron && !calConfigured ? (
                     <button
                       onClick={() => setSettingsOpen(true)}
-                      className="flex cursor-pointer items-center gap-1.5 py-[7px] pl-6 text-[12.5px] text-muted hover:text-foreground"
+                      className="flex cursor-pointer items-center gap-1.5 py-[7px] pl-4 text-[12.5px] text-muted hover:text-foreground"
                     >
                       <GearIcon className="h-3 w-3" />
                       구글캘린더 연동하기
                     </button>
                   ) : upcomingEvents.length === 0 ? (
-                    <p className="py-[7px] pl-6 text-[12.5px] text-muted">
+                    <p className="py-[7px] pl-4 text-[12.5px] text-muted">
                       {calError === "rate_limited"
                         ? "캨린더 요청이 많아 잠시 후 다시 불러와요"
                         : calError === "offline"
@@ -2786,7 +2786,7 @@ export default function App() {
                       return (
                         <div
                           key={ev.name + ev.start + i}
-                          className="flex items-center gap-3 py-[7px] pl-6"
+                          className="flex items-center gap-3 py-[7px] pl-4"
                         >
                           <span
                             className={`text-[12px] ${live ? "font-bold text-success" : "text-muted"}`}
@@ -2808,7 +2808,7 @@ export default function App() {
                 <Section title="Tasks" onDrop={() => dropIntoGroup(undefined)}>
                   {/* 할일이 하나도 없을 때 — Schedule의 "No events today"와 같은 톤 */}
                   {ungrouped.length === 0 && todoGroups.length === 0 && ungroupedDoneToday.length === 0 && (
-                    <p className="py-[7px] pl-6 text-[12.5px] text-muted">
+                    <p className="py-[7px] pl-4 text-[12.5px] text-muted">
                       Nothing to do
                     </p>
                   )}
@@ -3211,13 +3211,13 @@ function TaskRow({
       }}
       onMouseEnter={() => onSelEnter?.()}
       className={`group relative flex select-none items-center gap-3 rounded-lg py-[7px] pr-1 ${hasNote ? "cursor-pointer" : ""} ${
-        drag || indent ? "pl-6" : "pl-1.5" /* 드래그 손잡이(⠿) 자리가 필요한 행만 들여쓰기 */
+        drag || indent ? "pl-4" : "pl-1.5" /* 드래그 손잡이(⠿) 자리가 필요한 행만 들여쓰기 (글씨 자리 확보를 위해 좁게) */
       } ${selected ? "sk-selected bg-background-secondary" : ""} ${checking ? "animate-wiggle" : ""}`}
     >
       {/* 드롭 위치 표시선 */}
       {drag?.indicator && (
         <span
-          className={`pointer-events-none absolute left-6 right-1 h-[2px] rounded bg-foreground ${
+          className={`pointer-events-none absolute left-4 right-1 h-[2px] rounded bg-foreground ${
             drag.indicator === "before" ? "top-0" : "bottom-0"
           }`}
         />
@@ -3233,7 +3233,7 @@ function TaskRow({
             drag.onDragStart();
           }}
           onDragEnd={() => drag.onDragEnd()}
-          className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab select-none text-[12px] leading-none text-muted opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
+          className="absolute left-0 top-1/2 -translate-y-1/2 cursor-grab select-none text-[12px] leading-none text-muted opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
           aria-label="드래그해서 이동"
         >
           ⠿
@@ -3302,15 +3302,9 @@ function TaskRow({
         </span>
       )}
 
-      {carried > 0 && (
-        <span className="flex-shrink-0 text-[11px] text-warning">
-          +{carried}d
-        </span>
-      )}
-
       {/* 메모 아이콘: 제목 길이와 상관없이 줄 오른쪽 끝 고정 칸 — 누르면 메모가 펼쳐지고 접힌다.
-          메모가 없는 줄도 칸은 비워 둬서 +Nd 위치가 줄마다 같게 */}
-      <span className="-ml-1.5 flex w-5 flex-shrink-0 items-center justify-center">
+          메모가 없는 줄도 칸은 비워 둬서 아이콘 위치가 줄마다 같게. 날짜(+Nd)는 맨 끝 */}
+      <span className="flex w-5 flex-shrink-0 items-center justify-center">
         {hasNote && !editing && (
           <button
             onClick={() => detail.setOpen(task.id, !detailOpen)}
@@ -3349,6 +3343,12 @@ function TaskRow({
           </button>
         )}
       </span>
+      {/* 날짜(+Nd)는 맨 끝. Today 목록에선 날짜가 없는 줄도 칸을 비워 둬서 메모 아이콘이 세로로 맞게 */}
+      {(carried > 0 || task.status === "todo") && (
+        <span className="-ml-1.5 min-w-[24px] flex-shrink-0 text-right text-[11px] text-warning">
+          {carried > 0 && `+${carried}d`}
+        </span>
+      )}
 
     </div>
     {detailOpen && (
@@ -3430,7 +3430,7 @@ function TaskDetail({
   return (
     <div
       ref={boxRef}
-      className="sk-detail mb-1.5 ml-[54px] mr-1 text-[11.5px] leading-snug text-muted"
+      className="sk-detail mb-1.5 ml-[46px] mr-1 text-[11.5px] leading-snug text-muted"
       onMouseDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.stopPropagation()}
     >

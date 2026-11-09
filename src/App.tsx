@@ -3128,7 +3128,8 @@ function TaskRow({
   const strike = useContext(StrikeCtx);
   const [checking, setChecking] = useState(false);
   const detail = useContext(DetailCtx);
-  const detailOpen = detail.openIds.has(task.id);
+  // 메모가 있으면 항상 보이고, 우클릭 → note 로 새로 쓰는 중일 때도 보인다
+  const detailOpen = !!(task.note || task.link) || detail.openIds.has(task.id);
 
   // ── 인라인 편집 ──
   const [editing, setEditing] = useState(false);
@@ -3181,7 +3182,7 @@ function TaskRow({
       data-sel-idx={selIdx}
       onMouseDown={(e) => {
         if (e.button !== 0 || editing) return;
-        if ((e.target as HTMLElement).closest("button,input,[data-handle],[data-detail]")) return;
+        if ((e.target as HTMLElement).closest("button,input,[data-handle]")) return;
         e.preventDefault();
         press.current = { x: e.clientX, y: e.clientY };
         if (e.shiftKey) return; // Shift+클릭은 onClick에서 범위 선택 처리
@@ -3189,7 +3190,7 @@ function TaskRow({
       }}
       onClick={(e) => {
         if (editing) return;
-        if ((e.target as HTMLElement).closest("button,input,[data-handle],[data-detail]")) return;
+        if ((e.target as HTMLElement).closest("button,input,[data-handle]")) return;
         if (e.shiftKey) {
           onSelShift?.();
           return;
@@ -3284,46 +3285,7 @@ function TaskRow({
           <span data-title className="relative -my-[7px] line-clamp-2 inline-block min-w-0 max-w-full cursor-text break-words py-[7px] leading-snug">
             {task.flag && <span className="mr-1 font-bold text-danger">!</span>}
             {task.title}
-          {/* 메모가 있으면 제목 바로 뒤에 작은 아이콘 — 누르면 메모칸이 열리고 닫힌다 (+Nd 표시와 떨어지게) */}
-          {(task.note || task.link) && !editing && (
-            <button
-              data-detail
-              onClick={() => detail.setOpen(task.id, !detailOpen)}
-              title={[task.note, task.link].filter(Boolean).join("\n")}
-              aria-label="메모·링크 보기"
-              aria-expanded={detailOpen}
-              className={`sk-detail-btn ml-1.5 inline-flex h-5 w-5 -translate-y-px align-middle flex-shrink-0 cursor-pointer items-center justify-center rounded text-muted hover:text-foreground ${
-                detailOpen ? "text-foreground" : ""
-              }`}
-            >
-              {task.note ? (
-                <>
-                  <svg viewBox="0 0 16 16" className="ico-plain h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                    <path d="M3 4.5h10M3 8h10M3 11.5h6" />
-                  </svg>
-                  {/* 낙서 스킨: 손으로 그은 듯 삐뚤빼뚤한 줄 */}
-                  <svg viewBox="0 0 16 16" className="ico-sketch h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2.4 5.2c1-.9 2-.1 3.1-.5 1.2-.5 2 .5 3.3 0 1.1-.4 2.2-.1 4.4-.3" />
-                    <path d="M2.1 8.6c.9-.5 1.9.4 3.2-.1 1.3-.6 2.2.4 3.5 0 1.2-.4 2.3.3 3.7-.3" />
-                    <path d="M2.7 12.1c.8-.7 1.8.2 2.9-.3 1-.5 2 .4 3.6-.2" />
-                  </svg>
-                </>
-              ) : (
-                <>
-                  <svg viewBox="0 0 16 16" className="ico-plain h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                    <path d="M6.5 9.5l3-3" />
-                    <path d="M7 4.5l1.2-1.2a2.6 2.6 0 013.7 3.7L10.7 8.2" />
-                    <path d="M9 11.5l-1.2 1.2a2.6 2.6 0 01-3.7-3.7L5.3 7.8" />
-                  </svg>
-                  <svg viewBox="0 0 16 16" className="ico-sketch h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6 10.2c.8-.5 1.4-1.4 2.2-2.1.5-.5.9-1 1.5-1.6" />
-                    <path d="M7.1 4.9c.4-.9 1.3-1.9 2.4-2.1 1.4-.3 2.9.6 3 2 .1 1.2-.6 2-1.4 2.8l-1 .7" />
-                    <path d="M8.9 11.3c-.3.9-1.1 1.8-2.2 2-1.5.3-3-.6-3.1-2-.1-1.1.7-2 1.5-2.7l.9-.8" />
-                  </svg>
-                </>
-              )}
-            </button>
-          )}
+          {/* 메모가 있으면 제목 끝에 작은 점 (각주 표시처럼) — 누르면 메모칸이 열리고 닫힌다 */}
             {/* 체크 중에만 선 그어지는 연출 (직선/낙서) — 완료 후엔 일반 취소선 */}
             {checking &&
               (strike === "scribble" ? (
@@ -3407,18 +3369,17 @@ function TaskDetail({
     else onClose();
   };
 
-  // 바깥을 누르면: 내용이 있으면 저장하고 그대로 두고, 비어 있으면 칸을 없앤다
+  // 고치는 중에 바깥을 누르면: 내용이 있으면 저장하고 읽기 모드로, 비어 있으면 칸을 없앤다
   useEffect(() => {
+    if (!editing) return;
     const onDown = (e: MouseEvent) => {
-      const t = e.target as HTMLElement;
-      if (boxRef.current?.contains(t)) return;
-      if (t.closest("[data-detail]")) return; // ≡ 아이콘은 자기가 열고 닫는다
+      if (boxRef.current?.contains(e.target as Node)) return;
       finish();
     };
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [task.id]);
+  }, [editing, task.id]);
 
   return (
     <div

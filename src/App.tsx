@@ -3132,10 +3132,7 @@ function TaskRow({
   const detailOpen = detail.openIds.has(task.id);
   const detailOpenRef = useRef(detailOpen);
   detailOpenRef.current = detailOpen;
-  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (clickTimer.current) clearTimeout(clickTimer.current);
-  }, []);
+  const wasOpen = useRef(false);
 
   // ── 인라인 편집 ──
   const [editing, setEditing] = useState(false);
@@ -3207,20 +3204,16 @@ function TaskRow({
           Math.abs(e.clientX - press.current.x) +
           Math.abs(e.clientY - press.current.y);
         if (moved > 4) return;
-        // 한 번 클릭 = 메모 펼치기/접기, 두 번 클릭 = 제목 수정.
-        // 두 번 클릭할 때 메모가 열렸다 닫혔다 깜빡이지 않게, 첫 클릭은 잠깐 기다렸다가 처리한다
-        if (clickTimer.current) clearTimeout(clickTimer.current);
+        // 한 번 클릭 = 메모 펼치기/접기 (바로 반응), 두 번 클릭 = 제목 수정
         if (e.detail >= 2) return;
-        clickTimer.current = setTimeout(() => {
-          clickTimer.current = null;
-          detail.setOpen(task.id, !detailOpenRef.current);
-        }, 220);
+        wasOpen.current = detailOpenRef.current;
+        detail.setOpen(task.id, !detailOpenRef.current);
       }}
       onDoubleClick={(e) => {
         if (editing) return;
         if ((e.target as HTMLElement).closest("button,input,[data-handle]")) return;
-        if (clickTimer.current) clearTimeout(clickTimer.current);
-        clickTimer.current = null;
+        // 첫 클릭에서 바뀐 메모 펼침 상태는 원래대로 되돌린다
+        detail.setOpen(task.id, wasOpen.current);
         setDraft(task.title);
         setEditing(true);
       }}

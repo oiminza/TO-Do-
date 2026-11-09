@@ -3128,8 +3128,9 @@ function TaskRow({
   const strike = useContext(StrikeCtx);
   const [checking, setChecking] = useState(false);
   const detail = useContext(DetailCtx);
-  // 메모가 있으면 항상 보이고, 우클릭 → note 로 새로 쓰는 중일 때도 보인다
-  const detailOpen = !!(task.note || task.link) || detail.openIds.has(task.id);
+  // 메모는 접혀 있다가 줄의 빈 곳을 누르면 펼쳐진다 (우클릭 → note 로 새로 쓸 때도 펼쳐짐)
+  const hasNote = !!(task.note || task.link);
+  const detailOpen = detail.openIds.has(task.id);
 
   // ── 인라인 편집 ──
   const [editing, setEditing] = useState(false);
@@ -3200,13 +3201,16 @@ function TaskRow({
           Math.abs(e.clientX - press.current.x) +
           Math.abs(e.clientY - press.current.y);
         if (moved > 4) return;
-        // 제목 글자 위를 눌렀을 때만 수정 (줄 끝 빈 곳은 메모 아이콘과 겹치지 않게 비워둔다)
-        if (!(e.target as HTMLElement).closest("[data-title]")) return;
+        // 제목 글자 위 = 제목 수정, 줄의 빈 곳 = 메모 펼치기/접기
+        if (!(e.target as HTMLElement).closest("[data-title]")) {
+          if (hasNote) detail.setOpen(task.id, !detailOpen);
+          return;
+        }
         setDraft(task.title);
         setEditing(true);
       }}
       onMouseEnter={() => onSelEnter?.()}
-      className={`group relative flex select-none items-center gap-3 rounded-lg py-[7px] pr-1 ${
+      className={`group relative flex select-none items-center gap-3 rounded-lg py-[7px] pr-1 ${hasNote ? "cursor-pointer" : ""} ${
         drag || indent ? "pl-6" : "pl-1.5" /* 드래그 손잡이(⠿) 자리가 필요한 행만 들여쓰기 */
       } ${selected ? "sk-selected bg-background-secondary" : ""} ${checking ? "animate-wiggle" : ""}`}
     >
@@ -3234,6 +3238,15 @@ function TaskRow({
         >
           ⠿
         </span>
+      )}
+      {/* 메모가 있다는 표시: 체크박스 왼쪽 여백의 작은 점 (마우스를 올리면 드래그 손잡이에 자리를 내줌) */}
+      {hasNote && (
+        <span
+          aria-hidden
+          className={`sk-note-dot pointer-events-none absolute left-[11px] top-1/2 h-[4px] w-[4px] -translate-y-1/2 rounded-full transition-opacity ${
+            detailOpen ? "bg-foreground/50" : "bg-muted"
+          } ${drag ? "group-hover:opacity-0" : ""}`}
+        />
       )}
       <button
         role="checkbox"

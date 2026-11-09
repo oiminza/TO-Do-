@@ -3345,7 +3345,7 @@ function TaskRow({
       </span>
       {/* 날짜(+Nd)는 맨 끝. Today 목록에선 날짜가 없는 줄도 칸을 비워 둬서 메모 아이콘이 세로로 맞게 */}
       {(carried > 0 || task.status === "todo") && (
-        <span className="-ml-1.5 min-w-[24px] flex-shrink-0 text-right text-[11px] text-warning">
+        <span className="-ml-2.5 min-w-[24px] flex-shrink-0 text-left text-[11px] text-warning">
           {carried > 0 && `+${carried}d`}
         </span>
       )}

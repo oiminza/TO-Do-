@@ -13,13 +13,10 @@
     "dist:dir": "npm run build && electron-builder --mac --dir"
   },
   "dependencies": {
-    "@heroui/react": "^3.2.4",
-    "framer-motion": "^13.1.1",
-    "node-ical": "^0.27.1",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "node-ical": "^0.27.1"
   },
   "devDependencies": {
+    "@heroui/react": "^3.2.4",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
@@ -27,7 +24,10 @@
     "@vitejs/plugin-react": "^6.1.0",
     "electron": "^44.0.0",
     "electron-builder": "^26.15.3",
+    "framer-motion": "^13.1.1",
     "oxlint": "^1.79.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.2"
@@ -100,6 +100,11 @@
         "from": "electron/secrets/google-oauth.json",
         "to": "google-oauth.json"
       }
-    ]
+    ],
+    "electronLanguages": [
+      "en",
+      "ko"
+    ],
+    "compression": "maximum"
   }
 }

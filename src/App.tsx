@@ -3213,8 +3213,10 @@ function TaskRow({
       onDoubleClick={(e) => {
         if (editing) return;
         if ((e.target as HTMLElement).closest("button,input,[data-handle]")) return;
-        // 첫 클릭에서 바뀐 메모 펼침 상태는 원래대로 되돌린다
-        detail.setOpen(task.id, wasOpen.current);
+        // 첫 클릭에서 바뀐 메모 펼침 상태는 원래대로 되돌린다.
+        // 단, 빈 메모칸은 다시 열지 않는다 — 빈 칸은 열리자마자 입력창(autoFocus)이 포커스를 가져가서
+        // 제목 입력창이 바로 blur → 편집이 끝나 버리기 때문 (메모가 있으면 읽기 모드라 괜찮다)
+        detail.setOpen(task.id, wasOpen.current && !!(task.note || task.link));
         setDraft(task.title);
         setEditing(true);
       }}
